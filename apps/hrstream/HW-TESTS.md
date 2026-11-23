@@ -6,12 +6,21 @@ because it has no HRM and no radio). Record every run in the results table below
 
 Before you start:
 
-- Firmware: note `process.env.VERSION` (Web IDE console).
-- Install the app from this repo (Web IDE: upload the files listed in `metadata.json`, or the app loader).
+For AI-guided runs, follow the [AI hardware guide](../../hw-tests/AI-GUIDE.md).
+`<device>` means the exact address/UUID confirmed by the human after scanning.
+Start with `npm run watch -- run hrstream --device "<device>"` after installation.
+“Console” below can use `npm run watch -- console '<JS>' --device "<device>"`;
+add `--listen <seconds>` for later events. Disconnect before receiver/export
+clients connect. Cases explicitly testing the Web IDE still require the IDE.
+
+- Firmware/battery: run the guide's `first-contact` check and record the actual reply.
+- Install over local BLE: `npm run watch -- install hrstream --device "<device>"`.
+  Use the [AI guide](../../hw-tests/AI-GUIDE.md) for setup, verified uploads,
+  console output and Web IDE fallback.
 - Charge the watch above 50 %.
 - Disconnect the Web IDE before each case unless the case says otherwise, then
   start the app from the launcher (services are only applied while nothing is connected).
-- Receiver page: serve `apps/hrstream/` (`python3 -m http.server`) and open
+- Receiver page: serve with `python3 -m http.server 8000 --bind 127.0.0.1 --directory apps/hrstream` and open
   `http://localhost:8000/receiver.html` in desktop Chrome/Edge.
 
 | ID | Spec criterion | Setup | Steps | Expected (measurable) |

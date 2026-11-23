@@ -6,14 +6,23 @@ below.
 
 Before you start:
 
-- Firmware: note `process.env.VERSION` (Web IDE console).
-- Install the app from this repo (Web IDE: upload the files listed in `metadata.json`, or the app loader).
+For AI-guided runs, follow the [AI hardware guide](../../hw-tests/AI-GUIDE.md).
+`<device>` means the exact address/UUID confirmed by the human after scanning.
+Start with `npm run watch -- run compasscal --device "<device>"` after installation.
+“Console” below can use `npm run watch -- console '<JS>' --device "<device>"`;
+add `--listen <seconds>` for later events. Disconnect before receiver/export
+clients connect. Cases explicitly testing the Web IDE still require the IDE.
+
+- Firmware/battery: run the guide's `first-contact` check and record the actual reply.
+- Install over local BLE: `npm run watch -- install compasscal --device "<device>"`.
+  Use the [AI guide](../../hw-tests/AI-GUIDE.md) for setup, verified uploads,
+  console output and Web IDE fallback.
 - Charge the watch above 50 % unless a case says otherwise.
 - You need a phone with a compass app (set it to **magnetic** north, not true
   north), and a spot outdoors or indoors at least 1 m away from metal, magnets,
   laptops and speakers.
-- To see the debug lines, connect the Web IDE and type `DEBUG=true` in the
-  console while the app is running.
+- To see the debug lines, run `npm run watch -- console 'DEBUG=true' --listen 60 --device "<device>"`
+  while the app is running.
 
 | ID | Spec criterion | Setup | Steps | Expected (measurable) |
 |---|---|---|---|---|

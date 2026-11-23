@@ -8,13 +8,20 @@ below.
 
 Before you start:
 
-- Firmware: note `process.env.VERSION` (Web IDE console).
-- Install the app from this repo (Web IDE: upload `touchgest.app.js` as
-  `touchgest.app.js`, `gestures.lib.js` as `gestures`, and `app-icon.js`
-  evaluated as `touchgest.img`; or use an app loader pointing at this repo).
+For AI-guided runs, follow the [AI hardware guide](../../hw-tests/AI-GUIDE.md).
+`<device>` means the exact address/UUID confirmed by the human after scanning.
+Start with `npm run watch -- run touchgest --device "<device>"` after installation.
+“Console” below can use `npm run watch -- console '<JS>' --device "<device>"`;
+add `--listen <seconds>` for later events. Disconnect before receiver/export
+clients connect. Cases explicitly testing the Web IDE still require the IDE.
+
+- Firmware/battery: run the guide's `first-contact` check and record the actual reply.
+- Install over local BLE: `npm run watch -- install touchgest --device "<device>"`.
+  Use the [AI guide](../../hw-tests/AI-GUIDE.md) for setup, verified uploads,
+  console output and Web IDE fallback.
 - Charge the watch above 50 %.
-- Optional, for exact numbers: keep the Web IDE connected and run
-  `DEBUG = true` in the console after the app starts; every gesture then prints
+- Optional, for exact numbers: run
+  `npm run watch -- console 'DEBUG=true' --listen 60 --device "<device>"` after the app starts; every gesture then prints
   one JSON line (`{"evt":"gesture","type":…,"dir":…,"speed":…}`) and rejected
   movements print `{"evt":"unknown",…}`.
 - The counters at the bottom of the screen count `tap`, `dbl` (double tap),

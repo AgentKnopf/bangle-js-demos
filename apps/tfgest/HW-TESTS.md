@@ -5,15 +5,23 @@ of the spec. Record every run in the results table below.
 
 Before you start:
 
-- Firmware: note `process.env.VERSION` (Web IDE console).
-- Install the app from this repo (Web IDE: upload the files listed in
-  `metadata.json`, or the app loader).
-- Upload the model: in the Web IDE open `apps/tfgest/model/tfgest-model.js`
-  and send it to the watch (RAM is fine; it writes the files to Storage and
-  prints `tfgest model stored`).
+For AI-guided runs, follow the [AI hardware guide](../../hw-tests/AI-GUIDE.md).
+`<device>` means the exact address/UUID confirmed by the human after scanning.
+Start with `npm run watch -- run tfgest --device "<device>"` after installation.
+“Console” below can use `npm run watch -- console '<JS>' --device "<device>"`;
+add `--listen <seconds>` for later events. Disconnect before receiver/export
+clients connect. Cases explicitly testing the Web IDE still require the IDE.
+
+- Firmware/battery: run the guide's `first-contact` check and record the actual reply.
+- Install over local BLE: `npm run watch -- install tfgest --device "<device>"`.
+  Use the [AI guide](../../hw-tests/AI-GUIDE.md) for setup, verified uploads,
+  console output and Web IDE fallback.
+- Upload the model: `npm run watch -- exec apps/tfgest/model/tfgest-model.js --timeout 120 --device "<device>"`.
+  Require `tfgest model stored`, a successful reply and disconnect; run HW-1
+  before collecting training data. The guide explains float fallback and restore.
 - Charge the watch above 50 %.
-- "Console" means: Web IDE connected; after the app started, type
-  `DEBUG = true` in the left-hand console so the app prints JSON events.
+- For debug JSON events, after the app starts run
+  `npm run watch -- console 'DEBUG=true' --listen 60 --device "<device>"`.
 
 | ID | Spec criterion | Setup | Steps | Expected (measurable) |
 |---|---|---|---|---|

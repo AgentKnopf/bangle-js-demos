@@ -163,6 +163,12 @@ Firmware 2v29.74 in the emulator. Unless noted, assume the real watch behaves th
 
 ## Hardware tests
 
+For local shell-driven Bluetooth installation and AI-guided testing, read
+[hw-tests/AI-GUIDE.md](hw-tests/AI-GUIDE.md) first. It defines first contact,
+verified uploads, one-step-at-a-time conversation, safety, cleanup and measured
+results. Hardware BLE tooling is separate from the emulator and remains
+untested on a real watch; run `npm run test:watch` when changing it.
+
 Everything tagged [HW] in a spec becomes a case in `apps/<id>/HW-TESTS.md`,
 written from `hw-tests/TEMPLATE.md`. Each case is a numbered `HW-n` that
 names the spec criterion, the setup, numbered steps a tester can follow

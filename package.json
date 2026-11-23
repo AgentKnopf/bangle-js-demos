@@ -7,6 +7,8 @@
   "scripts": {
     "test": "node tools/check-apps.js && node tools/run-tests.js",
     "check": "node tools/check-apps.js",
+    "watch": "node tools/watch.js",
+    "test:watch": "node --test tools/watch.test.js && python3 -m unittest discover -s tools -p watch_ble_test.py",
     "test:harness": "node tools/selftest.js",
     "fetch-emulator": "node tools/lib/fetch-emulator.js",
     "screenshot": "node tools/screenshot.js",

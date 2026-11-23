@@ -6,16 +6,25 @@ in the results table below.
 
 Before you start:
 
-- Firmware: note `process.env.VERSION` (Web IDE console).
-- Install the app from this repo (Web IDE: upload the files listed in `metadata.json`, or the app loader).
+For AI-guided runs, follow the [AI hardware guide](../../hw-tests/AI-GUIDE.md).
+`<device>` means the exact address/UUID confirmed by the human after scanning.
+Start with `npm run watch -- run baroalt --device "<device>"` after installation.
+“Console” below can use `npm run watch -- console '<JS>' --device "<device>"`;
+add `--listen <seconds>` for later events. Disconnect before receiver/export
+clients connect. Cases explicitly testing the Web IDE still require the IDE.
+
+- Firmware/battery: run the guide's `first-contact` check and record the actual reply.
+- Install over local BLE: `npm run watch -- install baroalt --device "<device>"`.
+  Use the [AI guide](../../hw-tests/AI-GUIDE.md) for setup, verified uploads,
+  console output and Web IDE fallback.
 - Charge the watch above 50 % unless a case says otherwise.
-- For debug lines, connect the Web IDE and type `DEBUG=true` while the app runs.
+- For debug lines, run `npm run watch -- console 'DEBUG=true' --listen 60 --device "<device>"` while the app runs.
 - Know the floor height of your building if you can (stairs × step height);
   the app assumes 3.0 m per floor.
 
 | ID | Spec criterion | Setup | Steps | Expected (measurable) |
 |---|---|---|---|---|
-| HW-0 | sample rate (UNVERIFIED in spec) | App open, Web IDE connected | 1. Run `var n=0;Bangle.on('pressure',function(){n++});setTimeout(function(){print(n/30+" Hz")},30000)`. 2. Wait 30 s. 3. Repeat with the watch lying still for 2 min first (power-save mode). | Record both rates in Notes. Any rate from ~0.5 Hz to ~12 Hz is fine; the app resamples to 1 Hz. |
+| HW-0 | sample rate (UNVERIFIED in spec) | App open, Web IDE connected | 1. Run `var n=0,f=function(){n++};Bangle.on('pressure',f);setTimeout(function(){Bangle.removeListener('pressure',f);print(n/30+" Hz")},30000)`. 2. Wait 30 s. 3. Repeat with the watch lying still for 2 min first (power-save mode). | Record both rates in Notes. Any rate from ~0.5 Hz to ~12 Hz is fine; the app resamples to 1 Hz. |
 | HW-1 | 8 | Watch on the wrist, app open at the bottom of a staircase of at least 3 floors | 1. Stand still 10 s. 2. Tap the screen to reset (shows `+0.0 m`, `up 0 down 0`). 3. Walk up 3 floors at normal pace without stopping on landings for long. 4. Stand still 15 s at the top. 5. Note floors and relative altitude. 6. Repeat once going down 3 floors. | Up: `up 3` (±1), relative altitude ≈ +3 × floor height. Down: `down 3` (±1). Record counts, altitudes and the real number of floors. |
 | HW-2 | 9 | `baroalt.json` set to `{"v":1,"p0":1013.25,"floorM":3,"stepCheck":true}` (Web IDE: `require("Storage").writeJSON("baroalt.json",{v:1,p0:1013.25,floorM:3,stepCheck:true})`), app restarted, building with a lift | 1. Reset with a tap in the lift. 2. Ride ≥ 3 floors, standing still. 3. Wait 15 s after the doors open. 4. Note floors and altitude. 5. Walk up 1–2 floors of stairs. 6. Set `stepCheck` back to `false` afterwards. | Lift: `up 0` while the altitude shows the climb (record it). Stairs afterwards: floors counted (±1). Also note what the count is with `stepCheck:false` on the same lift (expected: it counts the lift). |
 | HW-3 | 10 | Room thermometer; watch worn for at least 30 min | 1. Note the room thermometer reading and the watch's temperature while worn. 2. Take the watch off and lay it on a table away from sunlight and heat. 3. After 30 min note both readings again. | Worn reading is higher than the room (expected several °C). Off the wrist it moves towards the room reading. Record all four numbers. The label always says `sensor temp`. |

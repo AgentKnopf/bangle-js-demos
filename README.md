@@ -69,6 +69,25 @@ node tools/screenshot.js hello --load --tap 88,88 --tap 88,88 --scale 2 --shot t
 
 Run `node tools/screenshot.js` without arguments for all steps (`--js`, `--wait`, `--swipe`, `--press`, ...).
 
+## Install and test on a real watch with an AI
+
+Run the assistant on the computer beside the watch. Start with the
+[AI hardware-testing guide](hw-tests/AI-GUIDE.md): local Bluetooth setup,
+first-contact firmware/battery check, verified app installation, guided
+physical tests and results recording. The Web IDE is a fallback.
+
+```sh
+npm run watch -- install touchgest --dry-run  # inspect every file/command, no BLE
+npm run watch -- scan                       # after optional Python BLE setup
+npm run watch -- first-contact --device "<address-or-UUID>"
+npm run watch -- install touchgest --device "<address-or-UUID>"
+```
+
+The optional BLE transport uses Python 3.10+ and pinned Bleak; Node has no npm
+dependencies. **Real Bluetooth/watch operation is not yet hardware-verified.**
+`npm run test:watch` covers upload planning, firmware Storage expressions and
+simulated transport failures, not physical radio behavior.
+
 ## Contributing
 
 Read [AGENTS.md](AGENTS.md) before adding or changing an app: it lists the

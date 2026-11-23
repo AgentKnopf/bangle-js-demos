@@ -1,0 +1,9 @@
+---
+description: Install Bangle.js apps over Bluetooth or guide real-watch hardware tests and record measured results.
+alwaysApply: false
+---
+
+Read `AGENTS.md`, `hw-tests/AI-GUIDE.md` and the selected
+`apps/<id>/HW-TESTS.md` before hardware work. Use local shell BLE and first
+contact, one human action at a time, confirmed measurements and explicit
+approval for disruptive cases. Never infer HW PASS from emulator success.
