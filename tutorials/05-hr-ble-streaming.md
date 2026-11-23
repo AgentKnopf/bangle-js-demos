@@ -19,6 +19,17 @@ radio, so the emulator can check every byte.
 The finished app is in [`apps/hrstream`](../apps/hrstream): `hrstream.lib.js` holds the logic,
 `hrstream.app.js` the UI and Bluetooth, `receiver.html` the web page.
 
+### How the checkpoints work
+
+Each step ends with **Your app so far**: the complete code of a single-file app, `hrdemo.app.js`,
+at that point. It is a simplified version of the finished app that grows step by step; the last
+step shows what the real app adds and ends with exactly the code in `apps/hrstream`.
+
+To run a checkpoint, paste it into the right-hand editor of the Web IDE and either click
+**Send to RAM**, or save it to Storage as `hrdemo.app.js` (the upload button's menu) and type
+`load("hrdemo.app.js")` in the console. Every checkpoint was run in the emulator, and the
+screenshots show what it printed or drew.
+
 ## 1. Turning on the HRM
 
 The sensor is off until an app asks for it. `Bangle.setHRMPower(on, appId)`
@@ -50,6 +61,30 @@ For the raw optical signal there is also `Bangle.on("HRM-raw", r)` with
 `{raw, filt, bpm, confidence}` (checked against the Espruino reference); this
 app doesn't stream it.
 
+### Your app so far
+
+```js
+// hrdemo.app.js, checkpoint 1: switch the HRM on and print every reading
+var APP = "hrdemo";
+
+Bangle.on("HRM", function (h) {
+  print(h.bpm, "bpm, confidence", h.confidence);
+});
+Bangle.setHRMPower(1, APP);
+E.on("kill", function () { Bangle.setHRMPower(0, APP); });
+```
+
+The screen stays blank for now. Fake two readings in the console:
+
+```js
+Bangle.emit("HRM", { bpm: 72, confidence: 85 });
+Bangle.emit("HRM", { bpm: 74, confidence: 88 });
+```
+
+![Console output of checkpoint 1](img/05/step1-console.png)
+
+*Each fake `HRM` event prints one line with the BPM and its confidence.*
+
 **You learned:** sensors are switched on per app id and switched off again in a `kill` handler.
 
 ## 2. What confidence means
@@ -74,10 +109,46 @@ function show(h) {
 show({ bpm: 131, confidence: 22 });
 ```
 
-![Low confidence: the number is greyed out](img/05/low-confidence.png)
-
 Wear tips for good readings: strap snug, one finger above the wrist bone, keep
 still for 10–20 s after putting it on.
+
+### Your app so far
+
+The `print` from step 1 is replaced by `show`, which now draws every reading below the widget bar.
+
+```js
+// hrdemo.app.js, checkpoint 2: show the BPM, grey when confidence is low
+var APP = "hrdemo";
+var THRESHOLD = 50;
+
+function show(h) {
+  var r = Bangle.appRect, cx = r.x + r.w / 2;
+  var ok = h.confidence >= THRESHOLD && h.bpm > 0;
+  g.reset().clearRect(r).setFontAlign(0, 0).setFont("Vector", 44);
+  if (!ok) g.setColor(0.5, 0.5, 0.5); // dithered grey on the 3-bit screen
+  g.drawString(h.bpm, cx, r.y + 60);
+  g.setColor(g.theme.fg).setFont("6x8", 2);
+  g.drawString(ok ? "conf " + h.confidence + "%" : "no reading", cx, r.y + 100);
+}
+
+Bangle.on("HRM", show);
+Bangle.setHRMPower(1, APP);
+E.on("kill", function () { Bangle.setHRMPower(0, APP); });
+Bangle.loadWidgets();
+Bangle.drawWidgets();
+show({ bpm: "--", confidence: 0 });
+```
+
+Try it with a good and a poor reading:
+
+```js
+Bangle.emit("HRM", { bpm: 72, confidence: 85 });
+Bangle.emit("HRM", { bpm: 131, confidence: 22 });
+```
+
+![Checkpoint 2 with a confident reading](img/05/step2-confident.png) ![Checkpoint 2 with low confidence](img/05/low-confidence.png)
+
+*Left: confidence 85, solid black digits and "conf 85%". Right: confidence 22, the digits are a grey checkerboard and the line below says "no reading".*
 
 **You learned:** a BPM without its confidence is not a measurement; show the difference.
 
@@ -129,6 +200,53 @@ navigator.bluetooth.requestDevice({ filters: [{ namePrefix: "Bangle" }], optiona
 Notifications arrive in chunks of about 20 bytes, so the page has to glue them
 back together into lines (step 6).
 
+### Your app so far
+
+The screen works as in step 2. New: `formatLine`, `send` and an `onHRM` handler that does both.
+The emulator has no `Bluetooth.println`, so `send` falls back to `print` there; on the watch the
+line goes to whatever is connected over Bluetooth.
+
+```js
+// hrdemo.app.js, checkpoint 3: also send every reading as an "HR {...}" line
+var APP = "hrdemo";
+var THRESHOLD = 50;
+
+function show(h) {
+  var r = Bangle.appRect, cx = r.x + r.w / 2;
+  var ok = h.confidence >= THRESHOLD && h.bpm > 0;
+  g.reset().clearRect(r).setFontAlign(0, 0).setFont("Vector", 44);
+  if (!ok) g.setColor(0.5, 0.5, 0.5); // dithered grey on the 3-bit screen
+  g.drawString(h.bpm, cx, r.y + 60);
+  g.setColor(g.theme.fg).setFont("6x8", 2);
+  g.drawString(ok ? "conf " + h.confidence + "%" : "no reading", cx, r.y + 100);
+}
+
+function formatLine(s) {
+  return "HR " + JSON.stringify({ t: Math.round(s.t), bpm: s.bpm, conf: s.conf, bat: s.bat });
+}
+
+// The emulator has no Bluetooth.println, so there the line goes to the console.
+function send(line) {
+  try { Bluetooth.println(line); } catch (e) { print(line); }
+}
+
+function onHRM(h) {
+  show(h);
+  send(formatLine({ t: Date.now(), bpm: h.bpm, conf: h.confidence, bat: E.getBattery() }));
+}
+
+Bangle.on("HRM", onHRM);
+Bangle.setHRMPower(1, APP);
+E.on("kill", function () { Bangle.setHRMPower(0, APP); });
+Bangle.loadWidgets();
+Bangle.drawWidgets();
+show({ bpm: "--", confidence: 0 });
+```
+
+![Console output of checkpoint 3](img/05/step3-console.png)
+
+*Three fake readings give three `HR` lines: each one is valid JSON after the `HR ` prefix, with the watch time `t` in ms and the battery (stubbed to 64 % here, because the emulator reports 0).*
+
 **You learned:** the UART is a shared text channel; frame your data with a prefix and one line per message.
 
 ## 4. The standard way: Heart Rate Service
@@ -178,6 +296,80 @@ Phones cache the GATT table of a device. If your phone app doesn't see the
 Heart Rate Service, **forget the device** in the phone's Bluetooth settings
 and connect again.
 
+### Your app so far
+
+New: `encodeHRS`, `updateHRS`, the remembered `lastGood` BPM, `NRF.setServices` at start and the
+clean-up in `kill`. As with `send`, `updateHRS` prints the bytes in the emulator, which has no
+`NRF.updateServices`.
+
+```js
+// hrdemo.app.js, checkpoint 4: add the standard Heart Rate Service
+var APP = "hrdemo";
+var THRESHOLD = 50;
+var lastGood = 0; // last confident BPM, sent while the reading is poor
+
+function show(h) {
+  var r = Bangle.appRect, cx = r.x + r.w / 2;
+  var ok = h.confidence >= THRESHOLD && h.bpm > 0;
+  g.reset().clearRect(r).setFontAlign(0, 0).setFont("Vector", 44);
+  if (!ok) g.setColor(0.5, 0.5, 0.5); // dithered grey on the 3-bit screen
+  g.drawString(h.bpm, cx, r.y + 60);
+  g.setColor(g.theme.fg).setFont("6x8", 2);
+  g.drawString(ok ? "conf " + h.confidence + "%" : "no reading", cx, r.y + 100);
+}
+
+function formatLine(s) {
+  return "HR " + JSON.stringify({ t: Math.round(s.t), bpm: s.bpm, conf: s.conf, bat: s.bat });
+}
+
+// The emulator has no Bluetooth.println, so there the line goes to the console.
+function send(line) {
+  try { Bluetooth.println(line); } catch (e) { print(line); }
+}
+
+function encodeHRS(bpm, contact) {
+  var flags = contact === true ? 0x06 : (contact === false ? 0x04 : 0x00);
+  bpm = Math.round(bpm);
+  return [flags, bpm > 255 ? 255 : (bpm > 0 ? bpm : 0)];
+}
+
+// The emulator has no NRF.updateServices either: print the bytes instead.
+function updateHRS(v) {
+  try { NRF.updateServices({ 0x180D: { 0x2A37: { value: v, notify: true } } }); }
+  catch (e) { print("HRS", JSON.stringify(v)); }
+}
+
+function onHRM(h) {
+  var ok = h.confidence >= THRESHOLD && h.bpm > 0;
+  if (ok) lastGood = h.bpm;
+  show(h);
+  updateHRS(encodeHRS(lastGood, ok));
+  send(formatLine({ t: Date.now(), bpm: h.bpm, conf: h.confidence, bat: E.getBattery() }));
+}
+
+NRF.setServices({
+  0x180D: {
+    0x2A37: { value: [0, 0], maxLen: 2, readable: true, notify: true },
+    0x2A38: { value: 2, readable: true } // body sensor location: wrist
+  }
+}, { advertise: ["180D"], uart: true });
+Bangle.on("HRM", onHRM);
+Bangle.setHRMPower(1, APP);
+E.on("kill", function () {
+  Bangle.setHRMPower(0, APP);
+  NRF.setServices({}, { uart: true });
+});
+Bangle.loadWidgets();
+Bangle.drawWidgets();
+show({ bpm: "--", confidence: 0 });
+```
+
+![Console output of checkpoint 4](img/05/step4-console.png)
+
+*Readings with confidence 85, 22 and 88. Look at the `HRS` bytes: `[6,72]` is "contact, 72 bpm"; the poor reading (131 bpm, confidence 22) gives `[4,72]`, "no contact" and still the last good 72; then `[6,74]`. The UART line always carries the raw reading.*
+
+A phone heart-rate app can only show this on a real watch; see *Try it on the watch* below.
+
 **You learned:** a standard GATT service makes your watch work with apps you didn't write.
 
 ## 5. Connection handling
@@ -209,7 +401,122 @@ plain values and a `send` function, so tests can drive it without Bluetooth.
 Tapping the screen calls `setStreaming`, which pauses both channels and sends
 an `ST` line so the receiver knows why data stopped.
 
-![Paused by a tap](img/05/paused.png)
+### Your app so far
+
+This is the last single-file checkpoint and the longest (93 lines). `show` became `draw`, which also
+shows the connection and streaming state; new are the buffer, `onConnect`, `onDisconnect`, `toggle`
+and `Bangle.setUI`, which handles the tap and makes the button exit.
+
+```js
+// hrdemo.app.js, checkpoint 5: buffer while disconnected, tap to pause
+var APP = "hrdemo";
+var THRESHOLD = 50, FLUSH_MS = 1500;
+var lastGood = 0, last, buffer = [], connected = false, ready = false, streaming = true, flushTimer;
+
+function draw() {
+  var r = Bangle.appRect, cx = r.x + r.w / 2;
+  var ok = last && last.conf >= THRESHOLD && last.bpm > 0;
+  g.reset().clearRect(r).setFontAlign(0, -1).setFont("6x8", 2);
+  g.drawString(connected ? "connected" : "not connected", cx, r.y + 2);
+  g.setFont("6x8").drawString(streaming ? "streaming (tap: pause)" : "paused (tap: stream)", cx, r.y + 20);
+  if (!ok) g.setColor(0.5, 0.5, 0.5); // dithered grey on the 3-bit screen
+  g.setFont("Vector", 44).setFontAlign(0, 0).drawString(last ? last.bpm : "--", cx, r.y + 64);
+  g.setColor(g.theme.fg).setFont("6x8", 2).setFontAlign(0, -1);
+  g.drawString(!last ? "waiting" : (ok ? "conf " + last.conf + "%" : "no reading"), cx, r.y + 96);
+}
+
+function formatLine(s) {
+  return "HR " + JSON.stringify({ t: Math.round(s.t), bpm: s.bpm, conf: s.conf, bat: s.bat });
+}
+
+// The emulator has no Bluetooth.println, so there the line goes to the console.
+function send(line) {
+  try { Bluetooth.println(line); } catch (e) { print(line); }
+}
+
+function encodeHRS(bpm, contact) {
+  var flags = contact === true ? 0x06 : (contact === false ? 0x04 : 0x00);
+  bpm = Math.round(bpm);
+  return [flags, bpm > 255 ? 255 : (bpm > 0 ? bpm : 0)];
+}
+
+// The emulator has no NRF.updateServices either: print the bytes instead.
+function updateHRS(v) {
+  try { NRF.updateServices({ 0x180D: { 0x2A37: { value: v, notify: true } } }); }
+  catch (e) { print("HRS", JSON.stringify(v)); }
+}
+
+function onHRM(h) {
+  var ok = h.confidence >= THRESHOLD && h.bpm > 0;
+  if (ok) lastGood = h.bpm;
+  last = { bpm: h.bpm, conf: h.confidence };
+  draw();
+  if (!streaming) return;
+  updateHRS(encodeHRS(lastGood, ok));
+  var s = { t: Date.now(), bpm: h.bpm, conf: h.confidence, bat: E.getBattery() };
+  if (ready) send(formatLine(s));
+  else { buffer.push(s); if (buffer.length > 60) buffer.shift(); }
+}
+
+function onConnect() {
+  connected = true; ready = false;
+  if (flushTimer) clearTimeout(flushTimer);
+  flushTimer = setTimeout(function () { // give the client time to subscribe
+    flushTimer = undefined; ready = true;
+    buffer.forEach(function (s) { send(formatLine(s)); });
+    buffer = [];
+  }, FLUSH_MS);
+  draw();
+}
+
+function onDisconnect() {
+  if (flushTimer) clearTimeout(flushTimer);
+  flushTimer = undefined; connected = false; ready = false;
+  draw();
+}
+
+function toggle() {
+  streaming = !streaming;
+  if (ready) send("ST " + JSON.stringify({ t: Date.now(), evt: "stream", on: streaming }));
+  draw();
+}
+
+NRF.setServices({
+  0x180D: {
+    0x2A37: { value: [0, 0], maxLen: 2, readable: true, notify: true },
+    0x2A38: { value: 2, readable: true } // body sensor location: wrist
+  }
+}, { advertise: ["180D"], uart: true });
+Bangle.on("HRM", onHRM);
+NRF.on("connect", onConnect);
+NRF.on("disconnect", onDisconnect);
+Bangle.setHRMPower(1, APP);
+E.on("kill", function () {
+  if (flushTimer) clearTimeout(flushTimer);
+  Bangle.setHRMPower(0, APP);
+  NRF.setServices({}, { uart: true });
+});
+Bangle.setUI({ mode: "custom", touch: toggle, btn: function () { load(); } });
+Bangle.loadWidgets();
+Bangle.drawWidgets();
+draw();
+if (NRF.getSecurityStatus().connected) onConnect();
+```
+
+In the emulator nothing ever connects, so simulate it:
+
+```js
+for (var i = 0; i < 5; i++) Bangle.emit("HRM", { bpm: 70 + i, confidence: 90 });
+NRF.emit("connect", "aa:bb:cc:dd:ee:ff");   // wait 1.5 s, then tap the screen twice
+```
+
+![Console output of checkpoint 5](img/05/step5-console.png)
+
+*While nothing is connected only the `HRS` value changes and the samples go into the buffer. 1.5 s after `connect` all five come out in order with their original `t`; then lines are sent live, and each tap sends an `ST` line.*
+
+![Checkpoint 5 connected](img/05/step5-connected.png) ![Checkpoint 5 paused by a tap](img/05/paused.png)
+
+*Left: after `connect` the top line says "connected". Right: after a tap it says "paused (tap: stream)"; nothing is sent until the next tap.*
 
 **You learned:** buffer while disconnected, and give the client a moment before you flush.
 
@@ -244,6 +551,83 @@ and open `http://localhost:8000/receiver.html` (Web Bluetooth needs a secure
 context; `localhost` counts).
 
 ![The receiver page with 4 minutes of data](img/05/receiver.png)
+
+### Your app so far
+
+The watch app is checkpoint 5, unchanged. The PC side is a small page of its own, `receiver-demo.html`,
+with a simple `parseLine` of its own instead of the library (that comes in step 7). It connects,
+glues the chunks back into lines, drops duplicates and downloads the CSV:
+
+```html
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>HR receiver (tutorial)</title></head>
+<body style="font-family: sans-serif; margin: 20px">
+  <button id="connect">Connect</button>
+  <button id="csv">Download CSV</button>
+  <h1 id="bpm">-- bpm</h1>
+  <p id="info">not connected</p>
+  <pre id="rows"></pre>
+<script>
+var NUS = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+var NUS_RX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // watch -> PC
+var partial = "", rows = [], seen = {};
+
+// "HR {...}" -> the parsed object; console output -> null.
+// indexOf, not startsWith: a ">" prompt can sit in front of the line.
+function parseLine(line) {
+  var i = line.indexOf("HR {");
+  if (i < 0) return null;
+  try { return JSON.parse(line.substr(i + 3)); } catch (e) { return null; }
+}
+
+function onText(text) { // called with each notification's text
+  partial += text;
+  var lines = partial.split("\n");
+  partial = lines.pop(); // keep the unfinished line for later
+  lines.forEach(function (line) {
+    var d = parseLine(line);
+    if (!d || seen[d.t]) return; // not ours, or already received
+    seen[d.t] = true;
+    rows.push([d.t, Date.now(), d.bpm, d.conf].join(","));
+    document.getElementById("bpm").textContent = d.bpm + " bpm";
+    document.getElementById("info").textContent = "conf " + d.conf + "%, " + rows.length + " rows";
+    document.getElementById("rows").textContent = "watch_ms,host_ms,bpm,conf\n" + rows.slice(-8).join("\n");
+  });
+}
+
+document.getElementById("connect").onclick = function () {
+  navigator.bluetooth.requestDevice({ filters: [{ namePrefix: "Bangle" }], optionalServices: [NUS] })
+    .then(function (d) { return d.gatt.connect(); })
+    .then(function (s) { return s.getPrimaryService(NUS); })
+    .then(function (svc) { return svc.getCharacteristic(NUS_RX); })
+    .then(function (ch) {
+      ch.addEventListener("characteristicvaluechanged", function (e) {
+        onText(new TextDecoder().decode(e.target.value));
+      });
+      return ch.startNotifications();
+    })
+    .then(function () { document.getElementById("info").textContent = "connected, waiting for data"; })
+    .catch(function (e) { document.getElementById("info").textContent = String(e); });
+};
+
+document.getElementById("csv").onclick = function () {
+  var csv = "watch_ms,host_ms,bpm,conf\n" + rows.join("\n") + "\n";
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = "heart-rate.csv";
+  a.click();
+};
+</script>
+</body>
+</html>
+```
+
+Serve it like the real page (`python3 -m http.server`, then `http://localhost:8000/receiver-demo.html`).
+
+![The tutorial receiver page](img/05/step6-receiver-demo.png)
+
+*The page fed with checkpoint 5's emulator output in 20-byte chunks, a `>` prompt in front of the first line, the `ST` lines and one duplicate: 7 rows, the latest BPM on top, and no duplicate row.*
 
 **You learned:** Web Bluetooth notifications come in small chunks; rebuild lines before parsing.
 
@@ -287,6 +671,274 @@ T.test("simulated connect flushes the buffered lines in order", function (done) 
 
 Run them with `npm test -- hrstream`. Virtual time makes the 75-second feed
 take milliseconds.
+
+![Test run](img/05/step7-tests.png)
+
+*All 15 hrstream tests pass; the last line counts files, passes and failures.*
+
+### Your app so far: the finished app
+
+To make the code testable, the finished app splits checkpoint 5 into two files. Compared with checkpoint 5 it adds:
+
+| Checkpoint 5 | Finished app |
+|---|---|
+| everything in `hrdemo.app.js` | the logic (`encodeHRS`, `formatLine`, `parseLine`, the buffer) is in `hrstream.lib.js`, stored as the module `hrstream`; `HR.create({send})` holds the state |
+| `formatLine` passes values through | every number is clamped (BPM 0–255, confidence and battery 0–100, NaN → 0), so a line is always valid and under 100 bytes |
+| `ST` line built inline | `formatStatus`, plus `parseLine`/`csvRow` that the receiver page shares with the tests |
+| BPM and confidence only | a 60-sample sparkline below the number, with min and max |
+| `send` and `updateHRS` print in the emulator | errors are swallowed; with `DEBUG = true` every event is logged as JSON for the tests |
+| `NRF.setServices` unguarded | wrapped in `try`, so a missing Bluetooth stack can't stop the app |
+| `receiver-demo.html` | [`receiver.html`](../apps/hrstream/receiver.html): also subscribes to the Heart Rate Service, draws a chart and shows `ST` pauses |
+
+Upload `hrstream.lib.js` to Storage as `hrstream` and `hrstream.app.js` as `hrstream.app.js` (or install the
+app from the repository's app loader), then `load("hrstream.app.js")`. The two files, exactly as in `apps/hrstream`:
+
+<details>
+<summary><code>hrstream.lib.js</code></summary>
+
+```js
+// Heart-rate streaming logic: BLE encodings, line framing and the
+// disconnected-buffer. No Bangle/NRF/g calls here; the app injects `send`.
+exports.THRESHOLD = 50;
+exports.BUFFER = 60;
+exports.MAX_LINE = 100;
+exports.CSV_HEADER = "watch_ms,host_ms,bpm,conf";
+
+function int(v, lo, hi) {
+  var n = Math.round(+v);
+  if (!isFinite(n)) n = lo;
+  return n < lo ? lo : (n > hi ? hi : n);
+}
+exports.clampBpm = function (bpm) { return int(bpm, 0, 255); };
+
+// Heart Rate Measurement (0x2A37): flags byte, then uint8 BPM.
+// contact true/false sets "sensor contact supported" (bit 2) and
+// "contact detected" (bit 1); undefined leaves both clear.
+exports.encodeHRS = function (bpm, contact) {
+  var flags = 0;
+  if (contact === true) flags = 0x06;
+  else if (contact === false) flags = 0x04;
+  return [flags, int(bpm, 0, 255)];
+};
+
+exports.isConfident = function (conf, threshold) {
+  return +conf >= (threshold === undefined ? exports.THRESHOLD : threshold);
+};
+
+function cleanT(t) { t = Math.round(+t); return isFinite(t) ? t : 0; }
+
+exports.formatLine = function (s) {
+  var o = { t: cleanT(s.t), bpm: int(s.bpm, 0, 255), conf: int(s.conf, 0, 100) };
+  o.bat = (s.bat === undefined || s.bat === null || !isFinite(+s.bat)) ? null : int(s.bat, 0, 100);
+  return "HR " + JSON.stringify(o);
+};
+
+exports.formatStatus = function (t, on) {
+  return "ST " + JSON.stringify({ t: cleanT(t), evt: "stream", on: !!on });
+};
+
+// Receiver side: "HR {...}" / "ST {...}" -> {type, data}; anything else
+// (console output sharing the UART) -> null. The REPL can leave a ">"
+// prompt in front of a line, so the prefix is searched, not anchored.
+// String.indexOf on 2v29 firmware can report a match for a needle whose
+// first character is the haystack's last one, so check every hit.
+function find(s, x) {
+  for (var i = 0; i + x.length <= s.length; i++) {
+    i = s.indexOf(x, i);
+    if (i < 0) return -1;
+    if (s.substr(i, x.length) === x) return i;
+  }
+  return -1;
+}
+
+exports.parseLine = function (line) {
+  line = String(line).trim();
+  var i = find(line, "HR {"), j = find(line, "ST {");
+  if (i < 0 || (j >= 0 && j < i)) i = j;
+  if (i < 0 || (i > 0 && /[A-Za-z0-9]/.test(line.charAt(i - 1)))) return null;
+  try { return { type: line.substr(i, 2), data: JSON.parse(line.substr(i + 3)) }; } catch (e) { return null; }
+};
+
+exports.csvRow = function (d, hostMs) {
+  return [d.t, hostMs, d.bpm, d.conf].join(",");
+};
+
+exports.create = function (opts) {
+  opts = opts || {};
+  var max = opts.max || exports.BUFFER;
+  var thr = opts.threshold === undefined ? exports.THRESHOLD : opts.threshold;
+  var send = opts.send || function () {};
+  var s = {
+    buffer: [], history: [], connected: false, ready: false, streaming: true,
+    lastGood: 0, last: null, threshold: thr
+  };
+  // h = {bpm, confidence}; t = watch ms; bat = battery %.
+  s.onHRM = function (h, t, bat) {
+    var bpm = int(h.bpm, 0, 255), conf = int(h.confidence, 0, 100);
+    var ok = exports.isConfident(conf, thr) && bpm > 0;
+    if (ok) s.lastGood = bpm;
+    s.last = { bpm: bpm, conf: conf, ok: ok };
+    s.history.push(ok ? bpm : null);
+    while (s.history.length > max) s.history.shift();
+    var sample = { t: t, bpm: bpm, conf: conf, bat: bat };
+    var res = { sample: sample, confident: ok, hrs: exports.encodeHRS(s.lastGood, ok), line: exports.formatLine(sample), sent: false };
+    if (!s.streaming) return res;
+    if (s.connected && s.ready) { send(res.line); res.sent = true; }
+    else {
+      s.buffer.push(sample);
+      while (s.buffer.length > max) s.buffer.shift();
+    }
+    return res;
+  };
+  s.connect = function () { s.connected = true; s.ready = false; };
+  // Called once the client has had time to subscribe: sends the buffered
+  // samples (original t, oldest first) and streams live from then on.
+  s.flush = function () {
+    if (!s.connected) return 0;
+    s.ready = true;
+    var b = s.buffer;
+    s.buffer = [];
+    for (var i = 0; i < b.length; i++) send(exports.formatLine(b[i]));
+    return b.length;
+  };
+  s.disconnect = function () { s.connected = false; s.ready = false; };
+  s.setStreaming = function (on, t) {
+    s.streaming = !!on;
+    var line = exports.formatStatus(t, s.streaming);
+    if (s.connected && s.ready) send(line);
+    return line;
+  };
+  return s;
+};
+```
+
+</details>
+
+<details>
+<summary><code>hrstream.app.js</code></summary>
+
+```js
+// Heart rate streaming: shows BPM, confidence and a 60 s sparkline, and
+// streams over BLE as a standard Heart Rate Service and as "HR {...}" JSON
+// lines on the Nordic UART. Tap toggles streaming, the button exits.
+var DEBUG = false;
+var APP = "hrstream";
+var HR = require("hrstream");
+var FLUSH_MS = 1500; // time for a fresh client to subscribe to UART notifications
+var S, flushTimer;
+
+function log(o) { if (DEBUG) console.log(JSON.stringify(o)); }
+
+function uartSend(line) {
+  log({ evt: "uart", line: line });
+  try { Bluetooth.println(line); } catch (e) {}
+}
+
+function setupServices() {
+  try {
+    NRF.setServices({
+      0x180D: {
+        0x2A37: { value: [0, 0], maxLen: 2, readable: true, notify: true },
+        0x2A38: { value: 2, readable: true }
+      }
+    }, { advertise: ["180D"], uart: true });
+  } catch (e) { log({ evt: "error", msg: String(e) }); }
+}
+
+function updateHRS(v) {
+  log({ evt: "hrs", v: v });
+  try { NRF.updateServices({ 0x180D: { 0x2A37: { value: v, notify: true } } }); } catch (e) {}
+}
+
+function onHRM(h) {
+  var r = S.onHRM(h, Date.now(), E.getBattery());
+  if (S.streaming) updateHRS(r.hrs);
+  log({ evt: "hrm", bpm: r.sample.bpm, conf: r.sample.conf, ok: r.confident, sent: r.sent, buf: S.buffer.length });
+  draw();
+}
+
+function onConnect(addr) {
+  S.connect();
+  log({ evt: "conn", connected: true });
+  if (flushTimer) clearTimeout(flushTimer);
+  flushTimer = setTimeout(function () {
+    flushTimer = undefined;
+    log({ evt: "flush", n: S.flush() });
+  }, FLUSH_MS);
+  draw();
+}
+
+function onDisconnect(reason) {
+  if (flushTimer) clearTimeout(flushTimer);
+  flushTimer = undefined;
+  S.disconnect();
+  log({ evt: "conn", connected: false });
+  draw();
+}
+
+function toggle() {
+  S.setStreaming(!S.streaming, Date.now());
+  log({ evt: "stream", on: S.streaming });
+  draw();
+}
+
+function drawSpark(x, y, w, h) {
+  var v = S.history, lo = 255, hi = 0, i;
+  for (i = 0; i < v.length; i++) if (v[i] !== null) { if (v[i] < lo) lo = v[i]; if (v[i] > hi) hi = v[i]; }
+  g.setColor(g.theme.fg).drawRect(x, y, x + w - 1, y + h - 1);
+  if (hi < lo) return;
+  if (hi - lo < 10) { lo -= 5; hi += 5; }
+  var px, py, prev = false, step = (w - 3) / (HR.BUFFER - 1), off = HR.BUFFER - v.length;
+  for (i = 0; i < v.length; i++) {
+    if (v[i] === null) { prev = false; continue; }
+    var nx = x + 1 + Math.round((i + off) * step), ny = y + h - 2 - Math.round((v[i] - lo) * (h - 3) / (hi - lo));
+    if (prev) g.drawLine(px, py, nx, ny); else g.setPixel(nx, ny);
+    px = nx; py = ny; prev = true;
+  }
+  g.setFont("6x8").setFontAlign(-1, -1).drawString(hi, x + 2, y + 2).setFontAlign(-1, 1).drawString(lo, x + 2, y + h - 1);
+}
+
+function draw() {
+  var r = Bangle.appRect, cx = r.x + r.w / 2, last = S.last;
+  var ok = !!(last && last.ok);
+  g.reset().clearRect(r);
+  g.setFont("6x8", 2).setFontAlign(0, -1);
+  g.drawString(S.connected ? "connected" : "not connected", cx, r.y + 2);
+  g.setFont("6x8").drawString(S.streaming ? "streaming (tap: pause)" : "paused (tap: stream)", cx, r.y + 20);
+  if (!ok) g.setColor(0.5, 0.5, 0.5); // dithered grey on the 3-bit LCD
+  g.setFont("Vector", 44).setFontAlign(0, 0).drawString(last ? last.bpm : "--", cx, r.y + 54);
+  g.setColor(g.theme.fg).setFont("6x8", 2).setFontAlign(0, -1);
+  g.drawString(last ? "conf " + last.conf + "%" : "waiting", cx, r.y + 80);
+  if (last && !ok) g.setFont("6x8").drawString("no reading", cx, r.y + 97);
+  drawSpark(r.x + 4, r.y + 106, r.w - 8, r.y2 - r.y - 108);
+  log({ evt: "draw", bpm: last ? last.bpm : null, conf: last ? last.conf : null, grey: !ok, conn: S.connected, on: S.streaming });
+}
+
+E.on("kill", function () {
+  if (flushTimer) clearTimeout(flushTimer);
+  Bangle.setHRMPower(0, APP);
+  try { NRF.setServices({}, { uart: true }); } catch (e) {}
+  log({ evt: "kill" });
+});
+
+S = HR.create({ send: uartSend });
+Bangle.on("HRM", onHRM);
+NRF.on("connect", onConnect);
+NRF.on("disconnect", onDisconnect);
+Bangle.setHRMPower(1, APP);
+setupServices();
+Bangle.setUI({ mode: "custom", touch: toggle, btn: function () { load(); } });
+Bangle.loadWidgets();
+Bangle.drawWidgets();
+draw();
+if (NRF.getSecurityStatus().connected) { S.connect(); S.flush(); draw(); }
+```
+
+</details>
+
+![The finished app](img/05/finished.png)
+
+*The finished app after the 30 fake readings from* Test it in the emulator *below: BPM, confidence, connection and streaming state, and the sparkline of the last 60 readings with their min and max.*
 
 ## Test it in the emulator
 
