@@ -16,7 +16,8 @@ var press = B.createPress();
 function log(o) { if (DEBUG) console.log(JSON.stringify(o)); }
 function r1(n) { return n === undefined ? null : Math.round(n * 10) / 10; }
 function r2(n) { return n === undefined ? null : Math.round(n * 100) / 100; }
-function signed(n) { return (n >= 0 ? "+" : "") + n.toFixed(1); }
+// Rounded first, so small negative noise shows as "+0.0", not "-0.0".
+function signed(n) { n = Math.round(n * 10) / 10; return (n >= 0 ? "+" : "") + n.toFixed(1); }
 
 function loadSettings() {
   settings = { v: 1, p0: B.P_STD, floorM: B.FLOOR_M, stepCheck: false };

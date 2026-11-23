@@ -156,6 +156,13 @@ T.test("kill switches the barometer off and stops listening", function (done) {
   });
 });
 
+T.test("altitude near zero never shows as -0.0", function () {
+  T.eq(signed(-0.04), "+0.0");
+  T.eq(signed(0.04), "+0.0");
+  T.eq(signed(-0.06), "-0.1");
+  T.eq(signed(9.5), "+9.5");
+});
+
 T.test("button returns to the launcher", function (done) {
   var load = T.spy(global, "load", function () {});
   T.press(100);
