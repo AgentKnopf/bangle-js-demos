@@ -1,0 +1,18 @@
+{
+  "id": "hello",
+  "name": "Hello harness",
+  "shortName": "Hello",
+  "version": "0.01",
+  "description": "Tap counter that proves the emulator test harness end to end.",
+  "icon": "app.png",
+  "type": "app",
+  "tags": "tool",
+  "supports": ["BANGLEJS2"],
+  "readme": "README.md",
+  "allow_emulator": true,
+  "storage": [
+    { "name": "hello.app.js", "url": "hello.app.js" },
+    { "name": "hello", "url": "hello.lib.js" },
+    { "name": "hello.img", "url": "app-icon.js", "evaluate": true }
+  ]
+}

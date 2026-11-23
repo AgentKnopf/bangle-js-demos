@@ -1,0 +1,1 @@
+{ "id": "selfcheck", "name": "Harness self-check", "type": "app", "supports": ["BANGLEJS2"], "storage": [] }

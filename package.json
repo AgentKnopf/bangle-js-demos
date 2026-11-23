@@ -1,0 +1,15 @@
+{
+  "name": "bangle-js-demos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bangle.js 2 prototype apps and tutorials, tested in the real Espruino firmware emulator",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "test": "node tools/check-apps.js && node tools/run-tests.js",
+    "check": "node tools/check-apps.js",
+    "test:harness": "node tools/selftest.js",
+    "fetch-emulator": "node tools/lib/fetch-emulator.js",
+    "screenshot": "node tools/screenshot.js",
+    "icon": "node tools/make-icon.js"
+  }
+}
