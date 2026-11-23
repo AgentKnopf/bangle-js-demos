@@ -16,7 +16,7 @@ firmware, and a list of checks for real hardware.
 | 5 | [`apps/hrstream`](apps/hrstream) | Heart rate over BLE to phone/PC | intermediate | [05](tutorials/05-hr-ble-streaming.md) | done (HW tests pending) |
 | 6 | [`apps/datalog`](apps/datalog) | On-watch data logging and export | intermediate | [06](tutorials/06-data-logging.md) | done (HW tests pending) |
 | 7 | [`apps/actcls`](apps/actcls) | Rule-based activity / restlessness classifier | intermediate/advanced | [07](tutorials/07-activity-classifier.md) | emulator tests pass; HW tests pending |
-| 8 | `apps/tfgest` | TensorFlow Lite wrist-gesture classifier | advanced | `tutorials/08-tflite-wrist-gestures.md` | planned |
+| 8 | [`apps/tfgest`](apps/tfgest) | TensorFlow Lite wrist-gesture classifier | advanced | [08](tutorials/08-tflite-wrist-gestures.md) | emulator + PC tests pass; HW tests pending |
 
 App ids are proposals; the PR that adds a prototype may rename it and updates this table.
 

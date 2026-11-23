@@ -1,0 +1,1 @@
+{"v": 1, "labels": ["none", "flick-left", "flick-right", "twist", "raise", "shake"], "n": 19, "hz": 12.5, "scale": 0.01, "quant": "int8", "io": "float32", "thresh": 0.7, "arena": 8000, "bytes": 4888}
