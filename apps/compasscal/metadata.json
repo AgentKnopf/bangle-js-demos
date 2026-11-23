@@ -1,0 +1,23 @@
+{
+  "id": "compasscal",
+  "name": "Compass with calibration",
+  "shortName": "Compass",
+  "version": "0.01",
+  "description": "Tilt-aware compass with its own hard/soft-iron calibration and a target bearing to follow.",
+  "icon": "app.png",
+  "type": "app",
+  "tags": "tool,outdoors",
+  "supports": ["BANGLEJS2"],
+  "readme": "README.md",
+  "allow_emulator": true,
+  "storage": [
+    { "name": "compasscal.app.js", "url": "compasscal.app.js" },
+    { "name": "compasscal", "url": "compasscal.lib.js" },
+    { "name": "gestures", "url": "../touchgest/gestures.lib.js" },
+    { "name": "compasscal.img", "url": "app-icon.js", "evaluate": true }
+  ],
+  "data": [
+    { "name": "compass.json" },
+    { "name": "compasscal.json" }
+  ]
+}

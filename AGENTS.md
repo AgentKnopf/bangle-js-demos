@@ -99,7 +99,7 @@ T.beforeEach(function () { T.capture(); });
 | `T.test(name, fn, {timeout})` | Register a test. `fn()` is synchronous, `fn(done)` is async (call `done()` or `done(err)`), or return a Promise. Default timeout 60 000 ms virtual. |
 | `T.beforeEach(fn)`, `T.afterEach(fn)` | Run around every test. |
 | `T.ok(v, msg)`, `T.eq(a, b, msg)`, `T.near(a, b, tol, msg)`, `T.throws(fn, msg)`, `T.fail(msg)` | Assertions. `eq` compares objects/arrays by JSON. A failure inside a timer callback still fails the right test. |
-| `T.spy(obj, "fn")` / `T.spy(obj, "fn", impl)` | Record calls (`.calls` is an array of argument arrays), optionally replacing the function. Restored after each test. Works for missing functions too, e.g. `T.spy(NRF, "updateServices", function(){})`. |
+| `T.spy(obj, "fn")` / `T.spy(obj, "fn", impl)` | Record calls (`.calls` is an array of argument arrays), optionally replacing the function. Restored after each test. Works for missing functions too, e.g. `T.spy(NRF, "updateServices", function(){})`, and for built-in prototype methods such as `T.spy(StorageFile.prototype, "write")`, which still write to flash. |
 | `T.requireRAM(name)` | Load a Storage module as a RAM copy. Code run from Storage executes from emulated flash and is about 10x slower; use this for tests that replay thousands of samples. |
 | `T.capture()` | Start collecting the app's JSON `console.log` lines into `T.events` (clears it). `T.eventsOf("buzz")` filters by `evt`. |
 | `T.emit(obj, evt, arg, cb)` | `obj.emit(evt, arg)` and call `cb` after the handlers ran. |

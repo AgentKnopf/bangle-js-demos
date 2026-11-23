@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bangle.js data logger export</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 1.5em; max-width: 760px; }
+  button, select { font-size: 1em; padding: .4em .8em; margin: .2em .4em .2em 0; }
+  table { border-collapse: collapse; margin-top: .5em; }
+  td, th { border: 1px solid #ccc; padding: .2em .6em; text-align: left; }
+  .muted { color: #666; }
+  pre { background: #f4f4f4; padding: .5em; max-height: 12em; overflow: auto; }
+</style>
+</head>
+<body>
+<h1>Data logger export</h1>
+<p class="muted">On the watch open <b>Data logger → Export (PC)</b>, then press Connect (Chrome or Edge;
+serve this folder over http://localhost or open the file directly).</p>
+<p>
+  <button id="connect">Connect</button>
+  <button id="list" disabled>Refresh list</button>
+  <button id="disconnect" disabled>Disconnect</button>
+</p>
+<p>Status: <span id="status">not connected</span></p>
+<table id="files"><thead><tr><th>Recording</th><th>Size</th><th></th></tr></thead><tbody></tbody></table>
+<h3>Preview</h3>
+<pre id="preview" class="muted">(nothing downloaded yet)</pre>
+
+<script>var exports = {};</script>
+<script src="datalog.lib.js"></script>
+<script>
+var D = exports;
+var NUS = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+var NUS_TX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // PC -> watch
+var NUS_RX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // watch -> PC
+var device, tx, partial = "", pending = null;
+var $ = function (id) { return document.getElementById(id); };
+function status(s) { $("status").textContent = s; }
+
+// Collects response lines until END. One request at a time.
+function onText(text) {
+  partial += text;
+  var lines = partial.split("\n");
+  partial = lines.pop();
+  lines.forEach(function (l) {
+    l = l.replace(/\r$/, "");
+    if (!pending) return;
+    if (l === "END") { var p = pending; pending = null; clearTimeout(p.timer); p.resolve(p.lines); return; }
+    pending.lines.push(l);
+    pending.onProgress && pending.onProgress(pending.lines.length);
+  });
+}
+
+function send(str) {
+  var data = new TextEncoder().encode(str), chain = Promise.resolve();
+  for (var i = 0; i < data.length; i += 20) (function (chunk) {
+    chain = chain.then(function () { return tx.writeValue(chunk); });
+  })(data.slice(i, i + 20));
+  return chain;
+}
+
+function request(cmd, onProgress) {
+  if (pending) return Promise.reject(new Error("busy"));
+  return new Promise(function (resolve, reject) {
+    pending = { lines: [], resolve: resolve, onProgress: onProgress };
+    // No END at all usually means the watch is not in Export mode and the
+    // console answered instead.
+    var arm = function () {
+      clearTimeout(pending && pending.timer);
+      if (pending) pending.timer = setTimeout(function () { pending = null; reject(new Error("no answer - is the watch in Export mode?")); }, 5000);
+    };
+    arm();
+    var prog = pending.onProgress;
+    pending.onProgress = function (n) { arm(); if (prog) prog(n); };
+    send(cmd + "\n").catch(reject);
+  });
+}
+
+function refresh() {
+  status("listing…");
+  return request("LIST").then(function (lines) {
+    var body = $("files").tBodies[0];
+    body.innerHTML = "";
+    lines.forEach(function (l) {
+      if (l.substr(0, 2) !== "F ") return;
+      var f = JSON.parse(l.substr(2)), tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + f.name + "</td><td>" + (f.bytes / 1024).toFixed(1) + " kB</td><td></td>";
+      var csv = document.createElement("button"); csv.textContent = "CSV";
+      csv.onclick = function () { get(f, false); };
+      var raw = document.createElement("button"); raw.textContent = "raw log";
+      raw.onclick = function () { get(f, true); };
+      tr.cells[2].appendChild(csv); tr.cells[2].appendChild(raw);
+      body.appendChild(tr);
+    });
+    status("connected, " + body.rows.length + " recording(s)");
+  }).catch(function (e) { status(e.message); });
+}
+
+// Raw log lines -> CSV text with the type codes expanded into columns.
+function toCSV(lines) {
+  var label = "", out = [D.CSV_HEADER];
+  lines.forEach(function (l) {
+    if (l.charAt(0) === "{") { try { var h = JSON.parse(l); if (h.v) label = h.label || ""; } catch (e) {} return; }
+    var row = D.toCSV(l, label);
+    if (row !== null) out.push(row);
+  });
+  return out.join("\n") + "\n";
+}
+
+function save(name, text, type) {
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: type }));
+  a.download = name;
+  a.click();
+}
+
+function get(f, raw) {
+  status("downloading " + f.name + "…");
+  return request("GET " + f.name, function (n) { status("downloading " + f.name + ": " + n + " lines"); }).then(function (lines) {
+    if (lines.length && lines[0].substr(0, 4) === "ERR ") throw new Error(lines[0]);
+    var text = raw ? lines.join("\n") + "\n" : toCSV(lines);
+    $("preview").textContent = text.split("\n").slice(0, 12).join("\n");
+    save(f.name.replace(/^log\./, "log-") + (raw ? ".txt" : ".csv"), text, raw ? "text/plain" : "text/csv");
+    status("saved " + f.name + " (" + lines.length + " lines)");
+  }).catch(function (e) { status(e.message); });
+}
+
+$("connect").onclick = function () {
+  navigator.bluetooth.requestDevice({ filters: [{ namePrefix: "Bangle" }], optionalServices: [NUS] }).then(function (d) {
+    device = d;
+    device.addEventListener("gattserverdisconnected", function () {
+      status("disconnected"); $("list").disabled = $("disconnect").disabled = true; partial = ""; pending = null;
+    });
+    status("connecting…");
+    return d.gatt.connect();
+  }).then(function (s) { return s.getPrimaryService(NUS); }).then(function (svc) {
+    return Promise.all([svc.getCharacteristic(NUS_TX), svc.getCharacteristic(NUS_RX)]);
+  }).then(function (ch) {
+    tx = ch[0];
+    var dec = new TextDecoder();
+    ch[1].addEventListener("characteristicvaluechanged", function (ev) { onText(dec.decode(ev.target.value)); });
+    return ch[1].startNotifications();
+  }).then(function () {
+    $("list").disabled = $("disconnect").disabled = false;
+    return refresh();
+  }).catch(function (e) { status("error: " + e.message); });
+};
+$("list").onclick = refresh;
+$("disconnect").onclick = function () { if (device && device.gatt.connected) device.gatt.disconnect(); };
+</script>
+</body>
+</html>
