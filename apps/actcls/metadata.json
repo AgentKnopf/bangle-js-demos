@@ -1,0 +1,19 @@
+{
+  "id": "actcls",
+  "name": "Activity classifier",
+  "shortName": "Activity",
+  "version": "0.01",
+  "description": "Rule-based still / fidget / walk / run classifier with a restlessness score, from the accelerometer alone.",
+  "icon": "app.png",
+  "type": "app",
+  "tags": "health,tool",
+  "supports": ["BANGLEJS2"],
+  "readme": "README.md",
+  "allow_emulator": true,
+  "storage": [
+    { "name": "actcls.app.js", "url": "actcls.app.js" },
+    { "name": "actcls", "url": "actcls.lib.js" },
+    { "name": "actcls.img", "url": "app-icon.js", "evaluate": true }
+  ],
+  "data": [{ "name": "actcls.json" }]
+}
