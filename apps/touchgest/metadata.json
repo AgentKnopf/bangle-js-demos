@@ -1,0 +1,18 @@
+{
+  "id": "touchgest",
+  "name": "Touch gestures",
+  "shortName": "Gestures",
+  "version": "0.01",
+  "description": "Recognizes tap, double tap, long press, swipes with speed and slow strokes. Reusable gesture module.",
+  "icon": "app.png",
+  "type": "app",
+  "tags": "tool,touch",
+  "supports": ["BANGLEJS2"],
+  "readme": "README.md",
+  "allow_emulator": true,
+  "storage": [
+    { "name": "touchgest.app.js", "url": "touchgest.app.js" },
+    { "name": "gestures", "url": "gestures.lib.js" },
+    { "name": "touchgest.img", "url": "app-icon.js", "evaluate": true }
+  ]
+}

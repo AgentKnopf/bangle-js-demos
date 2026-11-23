@@ -9,7 +9,7 @@ firmware, and a list of checks for real hardware.
 | # | App folder | Topic | Level | Tutorial | Status |
 |---|---|---|---|---|---|
 | 0 | [`apps/hello`](apps/hello) | Harness example: tap counter | — | — | done |
-| 1 | `apps/touchgest` | Touch gesture recognizer | beginner | `tutorials/01-touch-gestures.md` | planned |
+| 1 | [`apps/touchgest`](apps/touchgest) | Touch gesture recognizer | beginner | [01](tutorials/01-touch-gestures.md) | done |
 | 2 | `apps/hapticpat` | Haptic pattern player with safety limits | beginner | `tutorials/02-haptic-patterns.md` | planned |
 | 3 | `apps/compasscal` | Compass with calibration | beginner/intermediate | `tutorials/03-compass-heading.md` | planned |
 | 4 | `apps/baroalt` | Barometer altitude, stair counting, temperature | intermediate | `tutorials/04-barometer-altitude.md` | planned |
