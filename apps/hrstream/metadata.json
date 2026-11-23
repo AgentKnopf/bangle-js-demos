@@ -1,0 +1,18 @@
+{
+  "id": "hrstream",
+  "name": "HR stream",
+  "shortName": "HR stream",
+  "version": "0.01",
+  "description": "Streams heart rate over Bluetooth LE as a standard Heart Rate Service and as JSON lines on the UART, with a reference Web Bluetooth receiver page.",
+  "icon": "app.png",
+  "type": "app",
+  "tags": "health,bluetooth",
+  "supports": ["BANGLEJS2"],
+  "readme": "README.md",
+  "allow_emulator": true,
+  "storage": [
+    { "name": "hrstream.app.js", "url": "hrstream.app.js" },
+    { "name": "hrstream", "url": "hrstream.lib.js" },
+    { "name": "hrstream.img", "url": "app-icon.js", "evaluate": true }
+  ]
+}

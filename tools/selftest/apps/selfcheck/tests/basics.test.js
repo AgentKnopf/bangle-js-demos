@@ -118,3 +118,22 @@ T.test("[pass] T.requireRAM loads a module copy into RAM", function () {
   T.eq(m.name, "selfmod");
   T.throws(function () { T.requireRAM("no-such-module"); });
 });
+
+T.test("[pass] spy on a built-in prototype method calls through to flash", function () {
+  var S = require("Storage");
+  var s = T.spy(StorageFile.prototype, "write");
+  var file = S.open("log.q", "a");
+  file.write("abc\n");
+  file.write("def\n");
+  T.eq(s.calls, [["abc\n"], ["def\n"]], "calls recorded");
+  T.eq(S.list(/^log\.q$/, { sf: true }), ["log.q"], "StorageFile exists");
+  var r = S.open("log.q", "r");
+  T.eq([r.readLine(), r.readLine()], ["abc\n", "def\n"], "data reached flash");
+});
+
+T.test("[pass] spy on a built-in object method calls through", function () {
+  var s = T.spy(Bangle, "getOptions");
+  var o = Bangle.getOptions();
+  T.eq(s.calls.length, 1);
+  T.eq(typeof o.lockTimeout, "number");
+});

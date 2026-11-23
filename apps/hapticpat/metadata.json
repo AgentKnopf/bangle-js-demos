@@ -1,0 +1,23 @@
+{
+  "id": "hapticpat",
+  "name": "Haptic patterns",
+  "shortName": "Haptics",
+  "version": "0.01",
+  "description": "Plays vibration patterns described as data, with a strength cap, max on-time, duty-cycle and 60 s limits. Tap or button stops.",
+  "icon": "app.png",
+  "type": "app",
+  "tags": "tool,vibration",
+  "supports": ["BANGLEJS2"],
+  "readme": "README.md",
+  "allow_emulator": true,
+  "storage": [
+    { "name": "hapticpat.app.js", "url": "hapticpat.app.js" },
+    { "name": "haptic", "url": "haptic.lib.js" },
+    { "name": "gestures", "url": "../touchgest/gestures.lib.js" },
+    { "name": "hapticpat.img", "url": "app-icon.js", "evaluate": true }
+  ],
+  "data": [
+    { "name": "hapticpat.json" },
+    { "name": "hapticpat.pat.json" }
+  ]
+}

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bangle.js HR stream receiver</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 1.5em; max-width: 760px; }
+  button { font-size: 1em; padding: .4em 1em; margin-right: .5em; }
+  #bpm { font-size: 4em; font-weight: bold; }
+  #bpm.low { color: #999; }
+  canvas { width: 100%; height: 200px; border: 1px solid #ccc; }
+  .muted { color: #666; }
+</style>
+</head>
+<body>
+<h1>HR stream receiver</h1>
+<p class="muted">Open the <b>HR stream</b> app on the watch, then press Connect (Chrome or Edge;
+serve this folder over http://localhost or open the file directly).</p>
+<p>
+  <button id="connect">Connect</button>
+  <button id="disconnect" disabled>Disconnect</button>
+  <button id="csv" disabled>Download CSV</button>
+</p>
+<p>Status: <span id="status">not connected</span> · stream: <span id="stream">?</span> ·
+  samples: <span id="count">0</span> · HRS: <span id="hrs">–</span></p>
+<div><span id="bpm">--</span> BPM <span id="conf" class="muted"></span></div>
+<canvas id="chart" width="720" height="200"></canvas>
+
+<script>var exports = {};</script>
+<script src="hrstream.lib.js"></script>
+<script>
+var HR = exports;
+var NUS = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+var NUS_RX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // watch -> PC notifications
+var device, rows = [], seen = {}, partial = "";
+var $ = function (id) { return document.getElementById(id); };
+
+function status(s) { $("status").textContent = s; }
+
+// UART notifications arrive in chunks of up to 20 bytes; rebuild lines and
+// ignore anything that isn't an HR/ST line (the REPL shares the channel).
+function onText(text) {
+  partial += text;
+  var lines = partial.split("\n");
+  partial = lines.pop();
+  lines.forEach(onLine);
+}
+
+function onLine(line) {
+  var m = HR.parseLine(line);
+  if (!m) return;
+  if (m.type === "ST") { $("stream").textContent = m.data.on ? "on" : "paused"; return; }
+  var d = m.data;
+  if (seen[d.t]) return; // a reconnect flush can repeat samples we already have
+  seen[d.t] = true;
+  rows.push({ t: d.t, host: Date.now(), bpm: d.bpm, conf: d.conf });
+  rows.sort(function (a, b) { return a.t - b.t; });
+  $("count").textContent = rows.length;
+  $("bpm").textContent = d.bpm;
+  $("bpm").className = HR.isConfident(d.conf) ? "" : "low";
+  $("conf").textContent = "confidence " + d.conf + "%" + (d.bat === null ? "" : " · battery " + d.bat + "%");
+  $("csv").disabled = false;
+  drawChart();
+}
+
+function drawChart() {
+  var c = $("chart"), ctx = c.getContext("2d"), w = c.width, h = c.height;
+  var pts = rows.slice(-300), lo = 40, hi = 180;
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = "#eee";
+  for (var b = 60; b < hi; b += 20) { var gy = h - (b - lo) * h / (hi - lo); ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke(); ctx.fillStyle = "#aaa"; ctx.fillText(b, 2, gy - 2); }
+  for (var i = 1; i < pts.length; i++) {
+    var x0 = (i - 1) * w / 299, x1 = i * w / 299;
+    var y0 = h - (pts[i - 1].bpm - lo) * h / (hi - lo), y1 = h - (pts[i].bpm - lo) * h / (hi - lo);
+    ctx.strokeStyle = HR.isConfident(pts[i].conf) ? "#c00" : "#bbb";
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  }
+}
+
+function csv() {
+  return HR.CSV_HEADER + "\n" + rows.map(function (r) { return HR.csvRow(r, r.host); }).join("\n") + "\n";
+}
+
+function download() {
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv()], { type: "text/csv" }));
+  a.download = "hr-" + new Date().toISOString().replace(/[:.]/g, "-") + ".csv";
+  a.click();
+}
+
+function onHRS(ev) {
+  var v = ev.target.value; // DataView: flags, BPM
+  $("hrs").textContent = v.getUint8(1) + " (flags 0x" + v.getUint8(0).toString(16) + ")";
+}
+
+function connectGatt() {
+  status("connecting…");
+  return device.gatt.connect().then(function (server) {
+    var dec = new TextDecoder();
+    var uart = server.getPrimaryService(NUS).then(function (s) { return s.getCharacteristic(NUS_RX); }).then(function (ch) {
+      ch.addEventListener("characteristicvaluechanged", function (ev) { onText(dec.decode(ev.target.value)); });
+      return ch.startNotifications();
+    });
+    var hrs = server.getPrimaryService("heart_rate").then(function (s) { return s.getCharacteristic("heart_rate_measurement"); }).then(function (ch) {
+      ch.addEventListener("characteristicvaluechanged", onHRS);
+      return ch.startNotifications();
+    }).catch(function () { $("hrs").textContent = "not offered (reconnect after the app starts)"; });
+    return Promise.all([uart, hrs]);
+  }).then(function () {
+    status("connected");
+    $("disconnect").disabled = false;
+  });
+}
+
+$("connect").onclick = function () {
+  var p = device ? Promise.resolve(device) : navigator.bluetooth.requestDevice({
+    filters: [{ namePrefix: "Bangle" }], optionalServices: [NUS, "heart_rate"]
+  }).then(function (d) {
+    device = d;
+    device.addEventListener("gattserverdisconnected", function () {
+      status("disconnected (press Connect to resume)");
+      $("disconnect").disabled = true;
+      partial = "";
+    });
+    return d;
+  });
+  p.then(connectGatt).catch(function (e) { status("error: " + e.message); });
+};
+$("disconnect").onclick = function () { if (device && device.gatt.connected) device.gatt.disconnect(); };
+$("csv").onclick = download;
+</script>
+</body>
+</html>
