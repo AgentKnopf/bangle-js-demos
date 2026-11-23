@@ -48,6 +48,41 @@ Things to notice in the console:
 To stop the printing, run `reset()` (or `Bangle.removeAllListeners("drag")`
 and the same for `touch` and `swipe`).
 
+![Step 1 after a tap and a drag](img/01/step1.png)
+
+*What to look for: the "touch" line shows the clipped tap position, and the last drag line has b0 (the release) with dx0 dy0. The top line changes to "swipe" when the firmware recognizes a fast swipe.*
+
+**Your app so far** (22 lines, also in [`tutorials/code/01/step1.js`](code/01/step1.js)). It prints the same events as above and also writes the latest of each kind on the screen, so you can watch them without the console. The button goes back to the launcher.
+
+<details><summary>Show the code</summary>
+
+```js
+// Step 1: show the raw touch events (console and screen)
+Bangle.setLocked(false); // the touchscreen is ignored while the watch is locked
+g.clear();
+function show(y, text) {
+  g.reset().clearRect(0, y, 175, y + 30);
+  g.setFont("6x8", 2).setFontAlign(0, 0).drawString(text, 88, y + 15);
+}
+show(0, "touch me");
+Bangle.on("touch", function (button, xy) {
+  print("touch", button, JSON.stringify(xy));
+  show(40, "touch " + xy.x + "," + xy.y);
+});
+Bangle.on("drag", function (e) {
+  print("drag", JSON.stringify(e), Math.round(getTime() * 1000) % 100000);
+  show(80, "x" + e.x + " y" + e.y + " b" + e.b);
+  show(115, "dx" + e.dx + " dy" + e.dy);
+});
+Bangle.on("swipe", function (lr, ud) {
+  print("swipe", lr, ud);
+  show(0, "swipe " + lr + " " + ud);
+});
+setWatch(function () { load(); }, BTN1); // button: back to the launcher
+```
+
+</details>
+
 **You learned:** the shape of the three touch events, and that `drag` with the
 `b` flag is the one to build on.
 
@@ -78,6 +113,51 @@ Bangle.on("drag", function (e) { feed({ x: e.x, y: e.y, b: e.b, t: getTime() * 1
 Notice that `feed` never looks at `Bangle` or the clock: it gets everything,
 including the time, in the object you pass in. That will make it testable in
 step 6.
+
+![Step 2 after a diagonal drag](img/01/step2.png)
+
+*What to look for: the line follows your finger, and on release the top shows dx/dy (end minus start), the path length and the duration. For a straight drag the path is close to the straight-line distance (here √(120² + 110²) ≈ 163).*
+
+**Your app so far** (32 lines, also in [`tutorials/code/01/step2.js`](code/01/step2.js)). From here on the app claims the touchscreen with `Bangle.setUI` instead of `Bangle.on("drag")`; step 7 explains why.
+
+<details><summary>Show the code</summary>
+
+```js
+// Step 2: one stroke per touch: start, end, path length, duration
+var stroke = null;
+
+function show(lines) {
+  g.reset().clearRect(0, 0, 175, 60).setFont("6x8", 2).setFontAlign(0, 0);
+  lines.forEach(function (l, i) { g.drawString(l, 88, 12 + i * 18); });
+}
+
+function feed(p) {               // p = {x, y, b, t}, t in ms
+  if (p.b && !stroke) {          // finger down: start
+    g.clear();
+    stroke = { x0: p.x, y0: p.y, t0: p.t, x: p.x, y: p.y, path: 0 };
+  } else if (p.b) {              // finger moving
+    g.reset().drawLine(stroke.x, stroke.y, p.x, p.y);
+    stroke.path += Math.sqrt(Math.pow(p.x - stroke.x, 2) + Math.pow(p.y - stroke.y, 2));
+    stroke.x = p.x; stroke.y = p.y;
+  } else if (stroke) {           // finger up: report and forget
+    var s = stroke, dx = s.x - s.x0, dy = s.y - s.y0, dur = p.t - s.t0;
+    stroke = null;
+    print("stroke", { dx: dx, dy: dy, path: Math.round(s.path), dur: dur });
+    show(["dx " + dx + "  dy " + dy, "path " + Math.round(s.path) + " px", Math.round(dur) + " ms"]);
+  }
+}
+
+Bangle.setLocked(false);
+Bangle.setUI({
+  mode: "custom",
+  drag: function (e) { feed({ x: e.x, y: e.y, b: e.b, t: getTime() * 1000 }); },
+  btn: function () { load(); }
+});
+g.clear();
+show(["drag a finger"]);
+```
+
+</details>
 
 **You learned:** how to turn an event stream into "one thing per touch" with a
 small state object.
@@ -138,7 +218,73 @@ no double tap, report taps at once; the module has an option for a middle
 way, `instantTap: true`, which reports `tap` at once and then `doubletap` as
 an extra event when a second tap follows.
 
-![A double tap](img/01/doubletap.png) ![A long press](img/01/longpress.png)
+![Step 3 after two quick taps](img/01/doubletap.png)
+
+*What to look for: two quick taps show DOUBLETAP and never a TAP first, because the first tap waited out the double-tap window.*
+
+![Step 3 while a finger is held](img/01/longpress.png)
+
+*What to look for: LONGPRESS appears 600 ms after the finger went down, while it is still down. Lifting the finger afterwards reports nothing more.*
+
+**Your app so far** (51 lines, also in [`tutorials/code/01/step3.js`](code/01/step3.js)). It is the snippet above plus a screen label and two details the module also has: it keeps the path length (for step 5), and a long press that starts as the second press of a double tap first reports the pending tap.
+
+<details><summary>Show the code</summary>
+
+```js
+// Step 3: tap, double tap and long press, with timers
+var TAP_MOVE = 12, TAP_MS = 300, DOUBLE_MS = 350, LONG_MS = 600;
+var down = null, pendingTap = null, tapTimer, longTimer;
+
+function emit(ev) {
+  print(JSON.stringify(ev));
+  g.reset().clear().setFont("Vector", 26).setFontAlign(0, 0);
+  g.drawString(ev.type.toUpperCase(), 88, 70);
+}
+function dist(ax, ay, bx, by) { return Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)); }
+
+function press(p) {
+  down = { x0: p.x, y0: p.y, t0: p.t, x: p.x, y: p.y, path: 0, moved: 0, long: false };
+  if (pendingTap && p.t - pendingTap.t < DOUBLE_MS) { clearTimeout(tapTimer); down.second = true; }
+  longTimer = setTimeout(function () {
+    if (down.second) { pendingTap = null; emit({ type: "tap" }); } // the first tap was a tap after all
+    down.long = true;
+    emit({ type: "longpress" });
+  }, LONG_MS);
+}
+function move(p) {
+  down.path += dist(down.x, down.y, p.x, p.y);
+  down.x = p.x; down.y = p.y;
+  down.moved = Math.max(down.moved, dist(down.x0, down.y0, p.x, p.y));
+  if (down.moved >= TAP_MOVE) clearTimeout(longTimer);   // moved too far for a long press
+}
+function release(p) {
+  clearTimeout(longTimer);
+  var d = down; down = null;
+  if (d.long) return;                                     // already reported while held
+  if (d.moved < TAP_MOVE && p.t - d.t0 < TAP_MS) {
+    if (d.second) { pendingTap = null; emit({ type: "doubletap" }); return; }
+    pendingTap = { t: p.t };                              // wait: a second tap may follow
+    tapTimer = setTimeout(function () { pendingTap = null; emit({ type: "tap" }); }, DOUBLE_MS);
+    return;
+  }
+  if (d.second) { pendingTap = null; emit({ type: "tap" }); }
+}
+function feed(p) {                                        // p = {x, y, b, t}, t in ms
+  if (p.b && !down) press(p);
+  else if (p.b) move(p);
+  else if (down) release(p);
+}
+
+Bangle.setLocked(false);
+Bangle.setUI({
+  mode: "custom",
+  drag: function (e) { feed({ x: e.x, y: e.y, b: e.b, t: getTime() * 1000 }); },
+  btn: function () { load(); }
+});
+g.clear().setFont("6x8", 2).setFontAlign(0, 0).drawString("tap, double tap\nor hold", 88, 88);
+```
+
+</details>
 
 **You learned:** `setTimeout`/`clearTimeout` for "fire later unless something
 happens first", and why recognizing more gestures adds latency.
@@ -173,6 +319,86 @@ speed: it is what the user meant. Because only the first and last point are
 needed, a very fast swipe that produced just two `drag` events still gets a
 correct speed.
 
+![Step 4 after a fast swipe to the left](img/01/step4.png)
+
+*What to look for: the direction, the straight-line distance, the duration and the speed. 100 px in 150 ms is 667 px/s, which is above the 600 px/s "fast" threshold.*
+
+**Your app so far** (67 lines, also in [`tutorials/code/01/step4.js`](code/01/step4.js)). It adds `direction` and `describe` to the step 3 app. `release` now also feeds the release point to `move`, because the last point of a fast swipe may only come with the release.
+
+<details><summary>Show the code</summary>
+
+```js
+// Step 4: swipes with direction and speed
+var TAP_MOVE = 12, TAP_MS = 300, DOUBLE_MS = 350, LONG_MS = 600;
+var SWIPE_MIN = 40, SWIPE_MS = 600, SLOW = 150, FAST = 600;
+var down = null, pendingTap = null, tapTimer, longTimer;
+
+function emit(ev) {
+  print(JSON.stringify(ev));
+  g.reset().clear().setFont("Vector", 24).setFontAlign(0, 0);
+  g.drawString(ev.type.toUpperCase() + (ev.dir ? "\n" + ev.dir.toUpperCase() : ""), 88, 60);
+  if (ev.speed !== undefined) g.setFont("6x8", 2).drawString(ev.dist + " px " + ev.dur + " ms\n" +
+    ev.speed + " px/s\n" + ev.speedClass, 88, 135);
+}
+function dist(ax, ay, bx, by) { return Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)); }
+function direction(dx, dy) {
+  if (Math.abs(dx) >= Math.abs(dy)) return dx < 0 ? "left" : "right";  // ties go horizontal
+  return dy < 0 ? "up" : "down";                                        // screen y grows downwards
+}
+function describe(d, t1) {
+  var dur = Math.max(1, Math.round(t1 - d.t0));            // same timestamp: 1 ms, never divide by 0
+  var dd = dist(d.x0, d.y0, d.x, d.y), speed = Math.round(dd * 1000 / dur);
+  return { dir: direction(d.x - d.x0, d.y - d.y0), dist: Math.round(dd), dur: dur, speed: speed,
+    speedClass: speed < SLOW ? "slow" : speed > FAST ? "fast" : "normal" };
+}
+
+function press(p) {
+  down = { x0: p.x, y0: p.y, t0: p.t, x: p.x, y: p.y, path: 0, moved: 0, long: false };
+  if (pendingTap && p.t - pendingTap.t < DOUBLE_MS) { clearTimeout(tapTimer); down.second = true; }
+  longTimer = setTimeout(function () {
+    if (down.second) { pendingTap = null; emit({ type: "tap" }); }
+    down.long = true;
+    emit({ type: "longpress" });
+  }, LONG_MS);
+}
+function move(p) {
+  down.path += dist(down.x, down.y, p.x, p.y);
+  down.x = p.x; down.y = p.y;
+  down.moved = Math.max(down.moved, dist(down.x0, down.y0, p.x, p.y));
+  if (down.moved >= TAP_MOVE) clearTimeout(longTimer);
+}
+function release(p) {
+  if (p.x !== down.x || p.y !== down.y) move(p);          // the release may carry the last point
+  clearTimeout(longTimer);
+  var d = down; down = null;
+  if (d.long) return;
+  if (d.moved < TAP_MOVE && p.t - d.t0 < TAP_MS) {
+    if (d.second) { pendingTap = null; emit({ type: "doubletap" }); return; }
+    pendingTap = { t: p.t };
+    tapTimer = setTimeout(function () { pendingTap = null; emit({ type: "tap" }); }, DOUBLE_MS);
+    return;
+  }
+  if (d.second) { pendingTap = null; emit({ type: "tap" }); }
+  var ev = describe(d, p.t);
+  if (ev.dist >= SWIPE_MIN && ev.dur <= SWIPE_MS) { ev.type = "swipe"; emit(ev); }
+}
+function feed(p) {
+  if (p.b && !down) press(p);
+  else if (p.b) move(p);
+  else if (down) release(p);
+}
+
+Bangle.setLocked(false);
+Bangle.setUI({
+  mode: "custom",
+  drag: function (e) { feed({ x: e.x, y: e.y, b: e.b, t: getTime() * 1000 }); },
+  btn: function () { load(); }
+});
+g.clear().setFont("6x8", 2).setFontAlign(0, 0).drawString("swipe in any\ndirection", 88, 88);
+```
+
+</details>
+
 **You learned:** a little geometry, and how to pick thresholds that you can
 tune later in one place.
 
@@ -203,7 +429,89 @@ print(straightness([[150, 88], [100, 88], [50, 88]]).toFixed(2));               
 print(straightness([[150, 88], [125, 128], [100, 88], [75, 128], [50, 88]]).toFixed(2)); // 0.53
 ```
 
-![A slow stroke upwards](img/01/stroke.png)
+![Step 5 after a slow drag upwards](img/01/stroke.png)
+
+*What to look for: STROKE instead of SWIPE because the drag took 1000 ms (more than 600 ms), and the speed class "slow". A wobbly slow drag shows nothing on screen and prints "ignored: straightness …" in the console.*
+
+**Your app so far** (71 lines, also in [`tutorials/code/01/step5.js`](code/01/step5.js)). Compared with step 4 only the end of `release` changed: anything 40 px or longer is a swipe if it was quick, a stroke if it was slow and straight, and ignored otherwise.
+
+<details><summary>Show the code</summary>
+
+```js
+// Step 5: slow strokes, if the path is straight enough
+var TAP_MOVE = 12, TAP_MS = 300, DOUBLE_MS = 350, LONG_MS = 600;
+var SWIPE_MIN = 40, SWIPE_MS = 600, SLOW = 150, FAST = 600, STRAIGHT_MIN = 0.8;
+var down = null, pendingTap = null, tapTimer, longTimer;
+
+function emit(ev) {
+  print(JSON.stringify(ev));
+  g.reset().clear().setFont("Vector", 24).setFontAlign(0, 0);
+  g.drawString(ev.type.toUpperCase() + (ev.dir ? "\n" + ev.dir.toUpperCase() : ""), 88, 60);
+  if (ev.speed !== undefined) g.setFont("6x8", 2).drawString(ev.dist + " px " + ev.dur + " ms\n" +
+    ev.speed + " px/s\n" + ev.speedClass, 88, 135);
+}
+function dist(ax, ay, bx, by) { return Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)); }
+function direction(dx, dy) {
+  if (Math.abs(dx) >= Math.abs(dy)) return dx < 0 ? "left" : "right";  // ties go horizontal
+  return dy < 0 ? "up" : "down";                                        // screen y grows downwards
+}
+function describe(d, t1) {
+  var dur = Math.max(1, Math.round(t1 - d.t0));            // same timestamp: 1 ms, never divide by 0
+  var dd = dist(d.x0, d.y0, d.x, d.y), speed = Math.round(dd * 1000 / dur);
+  return { dir: direction(d.x - d.x0, d.y - d.y0), dist: Math.round(dd), dur: dur, speed: speed,
+    speedClass: speed < SLOW ? "slow" : speed > FAST ? "fast" : "normal" };
+}
+
+function press(p) {
+  down = { x0: p.x, y0: p.y, t0: p.t, x: p.x, y: p.y, path: 0, moved: 0, long: false };
+  if (pendingTap && p.t - pendingTap.t < DOUBLE_MS) { clearTimeout(tapTimer); down.second = true; }
+  longTimer = setTimeout(function () {
+    if (down.second) { pendingTap = null; emit({ type: "tap" }); }
+    down.long = true;
+    emit({ type: "longpress" });
+  }, LONG_MS);
+}
+function move(p) {
+  down.path += dist(down.x, down.y, p.x, p.y);
+  down.x = p.x; down.y = p.y;
+  down.moved = Math.max(down.moved, dist(down.x0, down.y0, p.x, p.y));
+  if (down.moved >= TAP_MOVE) clearTimeout(longTimer);
+}
+function release(p) {
+  if (p.x !== down.x || p.y !== down.y) move(p);          // the release may carry the last point
+  clearTimeout(longTimer);
+  var d = down; down = null;
+  if (d.long) return;
+  if (d.moved < TAP_MOVE && p.t - d.t0 < TAP_MS) {
+    if (d.second) { pendingTap = null; emit({ type: "doubletap" }); return; }
+    pendingTap = { t: p.t };
+    tapTimer = setTimeout(function () { pendingTap = null; emit({ type: "tap" }); }, DOUBLE_MS);
+    return;
+  }
+  if (d.second) { pendingTap = null; emit({ type: "tap" }); }
+  var ev = describe(d, p.t);
+  if (ev.dist < SWIPE_MIN) return;                        // too short for a swipe or stroke
+  var straight = d.path ? ev.dist / d.path : 1;           // 1.0 = ruler-straight
+  if (ev.dur <= SWIPE_MS) { ev.type = "swipe"; emit(ev); }
+  else if (straight >= STRAIGHT_MIN) { ev.type = "stroke"; emit(ev); }
+  else print("ignored: straightness " + straight.toFixed(2));
+}
+function feed(p) {
+  if (p.b && !down) press(p);
+  else if (p.b) move(p);
+  else if (down) release(p);
+}
+
+Bangle.setLocked(false);
+Bangle.setUI({
+  mode: "custom",
+  drag: function (e) { feed({ x: e.x, y: e.y, b: e.b, t: getTime() * 1000 }); },
+  btn: function () { load(); }
+});
+g.clear().setFont("6x8", 2).setFontAlign(0, 0).drawString("swipe, or drag\nslowly", 88, 88);
+```
+
+</details>
 
 **You learned:** a single feature (straightness) is often enough to separate
 intent from noise.
@@ -238,6 +546,62 @@ r.feed({ x: 38, y: 88, b: 0, t: 150 });
 ```
 
 The repo's tests do exactly this, see [Test it in the emulator](#test-it-in-the-emulator).
+
+![Step 6 after the scripted test has run](img/01/step6.png)
+
+*What to look for: "5/5 passed" and one PASS line per case. A FAIL line means `feed` reported something else for that case; the console shows what it got. After the test the app works with your finger again.*
+
+**Your app so far** (a marked change: the step 5 app with the block below added at the end; the complete file is [`tutorials/code/01/step6.js`](code/01/step6.js)). It tests the step 5 code without the module: it swaps `emit` for a recorder, drives `feed` with made-up points, and shows the results.
+
+<details><summary>Show the code to add</summary>
+
+```js
+// --- Step 6: a scripted test that drives feed() with made-up points ---
+var got = [], results = [];
+var showOnScreen = emit;                          // keep the screen version for later
+emit = function (ev) { got.push(ev.type + (ev.dir ? " " + ev.dir : "")); };
+function tap(x, y, t) { feed({ x: x, y: y, b: 1, t: t }); feed({ x: x, y: y, b: 0, t: t + 80 }); }
+function line(x0, y0, x1, y1, t, ms, n) {        // press, n moves, release
+  feed({ x: x0, y: y0, b: 1, t: t });
+  for (var i = 1; i <= n; i++) feed({ x: x0 + (x1 - x0) * i / n, y: y0 + (y1 - y0) * i / n, b: 1, t: t + ms * i / n });
+  feed({ x: x1, y: y1, b: 0, t: t + ms });
+}
+var cases = [
+  ["tap", function (t) { tap(88, 88, t); }, ["tap"]],
+  ["double tap", function (t) { tap(88, 88, t); tap(90, 90, t + 200); }, ["doubletap"]],
+  ["swipe left", function (t) { line(138, 88, 38, 88, t, 150, 5); }, ["swipe left"]],
+  ["stroke up", function (t) { line(88, 150, 88, 40, t, 1000, 10); }, ["stroke up"]],
+  ["zig-zag", function (t) {
+    [[150, 88], [125, 128], [100, 88], [75, 128], [50, 88]].forEach(function (q, i) {
+      feed({ x: q[0], y: q[1], b: 1, t: t + i * 250 });
+    });
+    feed({ x: 50, y: 88, b: 0, t: t + 1000 });
+  }, []]
+];
+var k = 0;
+function next() {
+  if (k >= cases.length) {                        // all done: show the results, use the app again
+    emit = showOnScreen;
+    var passed = results.filter(function (r) { return r.charAt(0) === "P"; }).length;
+    g.reset().clear().setFont("Vector", 26).setFontAlign(0, 0).drawString(passed + "/" + cases.length + " passed", 88, 25);
+    g.setFont("Vector", 18).setFontAlign(-1, 0);
+    results.forEach(function (r, i) { g.drawString(r, 4, 62 + i * 22); });
+    return;
+  }
+  var c = cases[k++];
+  got = [];
+  c[1](getTime() * 1000);
+  setTimeout(function () {                        // wait out the double-tap window
+    var ok = JSON.stringify(got) === JSON.stringify(c[2]);
+    results.push((ok ? "PASS " : "FAIL ") + c[0]);
+    print(results[results.length - 1], JSON.stringify(got));
+    next();
+  }, 500);
+}
+next();
+```
+
+</details>
 
 **You learned:** separating input from logic, so the logic can be tested
 with data instead of fingers.
@@ -289,6 +653,59 @@ All thresholds are at the top of `gestures.lib.js` (`TAP_MOVE`, `TAP_MS`,
 `STRAIGHT_MIN`, `SLOW_SPEED`, `FAST_SPEED`), and any of them can be
 overridden per recognizer in `G.create({...})`.
 
+![Step 7 after a fast swipe to the right](img/01/step7.png)
+
+*What to look for: the same screen as in step 5, but now every number comes from the module's event, which also carries the start and end points and a timestamp (see the console).*
+
+**Your app so far** (28 lines, also in [`tutorials/code/01/step7.js`](code/01/step7.js)). This is the final app in a simplified form: all the gesture logic now lives in the `gestures` module, so upload `apps/touchgest/gestures.lib.js` to Storage as `gestures` first.
+
+<details><summary>Show the code</summary>
+
+```js
+// Step 7: the gesture module in a small app (a cut-down touchgest.app.js)
+var G = require("gestures");
+var rec = G.create();                       // or G.create({ instantTap: true, LONG_MS: 800 })
+var savedLockTimeout = Bangle.getOptions().lockTimeout;
+
+function show(ev) {
+  g.reset().clear().setFont("Vector", 24).setFontAlign(0, 0);
+  g.drawString(ev.type.toUpperCase() + (ev.dir ? "\n" + ev.dir.toUpperCase() : ""), 88, 60);
+  if (ev.speed !== undefined) g.setFont("6x8", 2).drawString(ev.dist + " px " + ev.dur + " ms\n" +
+    ev.speed + " px/s\n" + ev.speedClass, 88, 135);
+}
+rec.on("gesture", function (ev) { print(JSON.stringify(ev)); show(ev); });
+
+function onLock(locked) { if (locked) rec.reset(); }   // drop a half-done gesture
+E.on("kill", function () {                               // leaving the app: put things back
+  Bangle.removeListener("lock", onLock);
+  Bangle.setOptions({ lockTimeout: savedLockTimeout });
+});
+
+Bangle.setOptions({ lockTimeout: 0 });                   // the touchscreen is off while locked
+Bangle.setLocked(false);
+Bangle.on("lock", onLock);
+Bangle.setUI({
+  mode: "custom",
+  drag: function (e) { rec.feed({ x: e.x, y: e.y, b: e.b, t: getTime() * 1000 }); },
+  btn: function () { load(); }
+});
+g.clear().setFont("6x8", 2).setFontAlign(0, 0).drawString("tap, hold\nor swipe", 88, 88);
+```
+
+</details>
+
+The real demo, [`apps/touchgest/touchgest.app.js`](../apps/touchgest/touchgest.app.js), uses the same module and lock handling and adds:
+
+- a trail that follows the finger and disappears 500 ms after release (at most 100 points);
+- a counter for each gesture type along the bottom;
+- a label that shrinks its font until it fits;
+- `G.create({ unknown: true })`, so rejected strokes can be logged when `DEBUG` is on;
+- cleanup on lock and on exit that also clears the trail and its timer.
+
+![The real app after a fast swipe](img/01/finished.png)
+
+*What to look for: the label, the numbers under it, and the counters (tap, dbl, long, swp, strk) along the bottom.*
+
 **You learned:** packaging logic as a module and sharing the touchscreen
 politely with the rest of the system.
 
@@ -325,6 +742,8 @@ You can also try it by hand in the Web IDE emulator: upload the app, drag the
 mouse across the screen, and watch the label and the trail.
 
 ![The trail while the finger moves](img/01/trail.png)
+
+*What to look for: the line drawn under the finger while it moves; it disappears half a second after you lift the finger.*
 
 ## Try it on the watch
 
