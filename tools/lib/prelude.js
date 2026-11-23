@@ -49,8 +49,9 @@ var T = {
       var args = [];
       for (var i = 0; i < arguments.length; i++) args.push(arguments[i]);
       s.calls.push(args);
-      var f = impl !== undefined ? impl : orig;
-      return (typeof f === "function") ? f.apply(this, args) : f;
+      if (impl !== undefined) return (typeof impl === "function") ? impl.apply(this, args) : impl;
+      if (typeof orig === "function") return orig.apply(this, args);
+      if (!own) return T._callBuiltin(obj, name, s, this, args);
     };
     s.calls = [];
     s.restore = function () {
@@ -60,6 +61,26 @@ var T = {
     obj[name] = s;
     T._spies.push(s);
     return s;
+  },
+
+  // Built-in prototype methods (e.g. StorageFile.prototype.write) read as
+  // undefined, so there is no function to apply. Remove the spy, call the
+  // method directly on the receiver, then put the spy back.
+  _callBuiltin: function (obj, name, spy, self, a) {
+    delete obj[name];
+    try {
+      switch (a.length) {
+        case 0: return self[name]();
+        case 1: return self[name](a[0]);
+        case 2: return self[name](a[0], a[1]);
+        case 3: return self[name](a[0], a[1], a[2]);
+        case 4: return self[name](a[0], a[1], a[2], a[3]);
+        case 5: return self[name](a[0], a[1], a[2], a[3], a[4]);
+        default: return self[name](a[0], a[1], a[2], a[3], a[4], a[5]);
+      }
+    } finally {
+      obj[name] = spy;
+    }
   },
 
   // ---- loading modules ----
