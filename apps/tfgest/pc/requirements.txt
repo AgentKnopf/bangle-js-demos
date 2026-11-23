@@ -1,0 +1,4 @@
+# PC training pipeline for tfgest. Tested with Python 3.12, tensorflow-cpu 2.21.0, keras 3.15, numpy 2.5.
+tensorflow>=2.15,<3   # or tensorflow-cpu
+numpy
+matplotlib            # optional, only for plotting recordings
