@@ -12,7 +12,7 @@ firmware, and a list of checks for real hardware.
 | 1 | [`apps/touchgest`](apps/touchgest) | Touch gesture recognizer | beginner | [01](tutorials/01-touch-gestures.md) | done |
 | 2 | [`apps/hapticpat`](apps/hapticpat) | Haptic pattern player with safety limits | beginner | [02](tutorials/02-haptic-patterns.md) | done |
 | 3 | [`apps/compasscal`](apps/compasscal) | Compass with calibration | beginner/intermediate | [03](tutorials/03-compass-heading.md) | emulator tests pass; HW tests pending |
-| 4 | `apps/baroalt` | Barometer altitude, stair counting, temperature | intermediate | `tutorials/04-barometer-altitude.md` | planned |
+| 4 | [`apps/baroalt`](apps/baroalt) | Barometer altitude, stair counting, temperature | intermediate | [04](tutorials/04-barometer-altitude.md) | emulator tests pass; HW tests pending |
 | 5 | `apps/hrstream` | Heart rate over BLE to phone/PC | intermediate | `tutorials/05-hr-ble-streaming.md` | planned |
 | 6 | `apps/datalog` | On-watch data logging and export | intermediate | `tutorials/06-data-logging.md` | planned |
 | 7 | `apps/actcls` | Rule-based activity / restlessness classifier | intermediate/advanced | `tutorials/07-activity-classifier.md` | planned |
