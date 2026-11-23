@@ -1,0 +1,35 @@
+{
+  "id": "baroalt",
+  "name": "Barometer altitude",
+  "shortName": "Baro alt",
+  "version": "0.01",
+  "description": "Relative altitude, floors climbed and descended, and an honest sensor temperature from the barometer.",
+  "icon": "app.png",
+  "type": "app",
+  "tags": "tool,outdoors",
+  "supports": [
+    "BANGLEJS2"
+  ],
+  "readme": "README.md",
+  "allow_emulator": true,
+  "storage": [
+    {
+      "name": "baroalt.app.js",
+      "url": "baroalt.app.js"
+    },
+    {
+      "name": "baroalt",
+      "url": "baroalt.lib.js"
+    },
+    {
+      "name": "baroalt.img",
+      "url": "app-icon.js",
+      "evaluate": true
+    }
+  ],
+  "data": [
+    {
+      "name": "baroalt.json"
+    }
+  ]
+}
