@@ -1,0 +1,24 @@
+{
+  "id": "datalog",
+  "name": "Data logger",
+  "shortName": "Data logger",
+  "version": "0.01",
+  "description": "Records accelerometer, heart rate, pressure, compass and steps to flash in a compact append-only log, and exports recordings to a PC as CSV over Bluetooth.",
+  "icon": "app.png",
+  "type": "app",
+  "tags": "tool,sensors,bluetooth",
+  "supports": ["BANGLEJS2"],
+  "readme": "README.md",
+  "allow_emulator": true,
+  "storage": [
+    { "name": "datalog.app.js", "url": "datalog.app.js" },
+    { "name": "datalog", "url": "datalog.lib.js" },
+    { "name": "datalog.settings.js", "url": "datalog.settings.js" },
+    { "name": "datalog.img", "url": "app-icon.js", "evaluate": true }
+  ],
+  "data": [
+    { "name": "datalog.json" },
+    { "name": "datalog.idx.json" },
+    { "wildcard": "log.*" }
+  ]
+}
