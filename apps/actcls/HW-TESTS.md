@@ -5,14 +5,20 @@ of the spec. Record every run in the results table below.
 
 Before you start:
 
-- Firmware: note `process.env.VERSION` (Web IDE console).
-- Install the app from this repo (Web IDE: upload the files listed in
-  `metadata.json`, or the app loader). For HW-1 also install the
-  prototype-06 data logger (`datalog`).
+For AI-guided runs, follow the [AI hardware guide](../../hw-tests/AI-GUIDE.md).
+`<device>` means the exact address/UUID confirmed by the human after scanning.
+Start with `npm run watch -- run actcls --device "<device>"` after installation.
+“Console” below can use `npm run watch -- console '<JS>' --device "<device>"`;
+add `--listen <seconds>` for later events. Disconnect before receiver/export
+clients connect. Cases explicitly testing the Web IDE still require the IDE.
+
+- Firmware/battery: run the guide's `first-contact` check and record the actual reply.
+- Install over local BLE: `npm run watch -- install actcls --device "<device>"`.
+  Use the [AI guide](../../hw-tests/AI-GUIDE.md) for setup, verified uploads,
+  console output and Web IDE fallback. For HW-1 also install `datalog`.
 - Charge the watch above 50 % unless a case says otherwise.
-- Where a case says "console", connect the Web IDE and set `DEBUG = true`
-  in the left-hand console after the app has started; window events are
-  then printed as JSON lines.
+- For window-event JSON, after the app starts run
+  `npm run watch -- console 'DEBUG=true' --listen 60 --device "<device>"`.
 
 | ID | Spec criterion | Setup | Steps | Expected (measurable) |
 |---|---|---|---|---|

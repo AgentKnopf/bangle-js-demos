@@ -10,17 +10,23 @@ results tables below.
 
 Before you start:
 
-- Firmware: note `process.env.VERSION` (Web IDE console).
-- Install the app from this repo (Web IDE: upload `hapticpat.app.js`,
-  `haptic.lib.js` as `haptic`, `../touchgest/gestures.lib.js` as `gestures`,
-  `app-icon.js` evaluated as `hapticpat.img`; or use an app loader pointing at
-  this repo).
+For AI-guided runs, follow the [AI hardware guide](../../hw-tests/AI-GUIDE.md).
+`<device>` means the exact address/UUID confirmed by the human after scanning.
+Start with `npm run watch -- run hapticpat --device "<device>"` after installation.
+“Console” below can use `npm run watch -- console '<JS>' --device "<device>"`;
+add `--listen <seconds>` for later events. Disconnect before receiver/export
+clients connect. Cases explicitly testing the Web IDE still require the IDE.
+
+- Firmware/battery: run the guide's `first-contact` check and record the actual reply.
+- Install over local BLE: `npm run watch -- install hapticpat --device "<device>"`.
+  Use the [AI guide](../../hw-tests/AI-GUIDE.md) for setup, verified uploads,
+  console output and Web IDE fallback.
 - Charge the watch above 50 % (except HW-8).
 - Wear the watch on the wrist as normal, strap snug. Quiet room.
 - In Settings, check that vibration is enabled (`Quiet mode` off). If buzzing is
   disabled in the firmware, nothing will be felt.
-- Optional, for exact numbers: keep the Web IDE connected and run
-  `DEBUG = true` after the app starts; every step then prints one JSON line
+- Optional, for exact numbers: run
+  `npm run watch -- console 'DEBUG=true' --listen 60 --device "<device>"` after the app starts; every step then prints one JSON line
   (`{"evt":"buzz",…}`) and each play ends with `{"evt":"done","reason":…}`.
 
 | ID | Spec criterion | Setup | Steps | Expected (measurable) |

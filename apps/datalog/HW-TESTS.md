@@ -7,10 +7,19 @@ results table below.
 
 Before you start:
 
-- Firmware: note `process.env.VERSION` (Web IDE console).
-- Install the app from this repo (Web IDE: upload the files listed in `metadata.json`, or the app loader).
+For AI-guided runs, follow the [AI hardware guide](../../hw-tests/AI-GUIDE.md).
+`<device>` means the exact address/UUID confirmed by the human after scanning.
+Start with `npm run watch -- run datalog --device "<device>"` after installation.
+“Console” below can use `npm run watch -- console '<JS>' --device "<device>"`;
+add `--listen <seconds>` for later events. Disconnect before receiver/export
+clients connect. Cases explicitly testing the Web IDE still require the IDE.
+
+- Firmware/battery: run the guide's `first-contact` check and record the actual reply.
+- Install over local BLE: `npm run watch -- install datalog --device "<device>"`.
+  Use the [AI guide](../../hw-tests/AI-GUIDE.md) for setup, verified uploads,
+  console output and Web IDE fallback.
 - Charge the watch to 100 % for HW-1/HW-2, above 50 % for the others.
-- Export page: serve `apps/datalog/` (`python3 -m http.server`) and open `http://localhost:8000/export.html`
+- Export page: serve with `python3 -m http.server 8000 --bind 127.0.0.1 --directory apps/datalog` and open `http://localhost:8000/export.html`
   in desktop Chrome/Edge. Python: `pip install bleak`.
 - Write measurements into the Notes column or the "Measurements" section at the end.
 
@@ -23,7 +32,7 @@ Before you start:
 | HW-5 | 2, 3 | Recording running (Accel 12.5Hz) for 20 s | 1. In the Web IDE (connect; logging continues) run `load()`. 2. Reopen Data logger → Recordings, open the recording. | Duration ≈ the time it ran; Delete prompt etc. work. Export it: every line is complete (5 fields), the last sample is within 1 s of the moment of `load()` (the `kill` handler flushed). |
 | HW-6 | 3 | Recording running for 30 s, Web IDE connected | 1. Force a watchdog reset, which skips `kill`: in the IDE console run `E.enableWatchdog(1, false); while (1) {}`. The watch reboots within a few seconds. (Holding the button is not a hard reset: at 1.5 s it loads the clock and `kill` runs.) 2. Open Data logger → Recordings. 3. Export the recording (CSV and raw log). | Recording is listed (duration may show `?:??` or be computed); raw log has a header and only complete lines, or a last partial line that the CSV conversion drops. At most the last ~1 KB of samples (≈ 4 s at 12.5 Hz) is missing. |
 | HW-7 | 4 | Fill the flash so little is free: Web IDE console `require("Storage").write("filler", "", 0, require("Storage").getFree() - 60000)` | 1. Start Accel 25Hz. 2. Wait until it stops (about 2 min). 3. Delete `filler` afterwards: `require("Storage").erase("filler")`. | "storage full" alert; the recording is listed and exports as valid CSV; the file is ≤ 57 000 bytes (95 % of the free space at start). |
-| HW-8 | 5 (over BLE) | Two recordings on the watch; Export (PC) open | 1. Export page: Connect. 2. Check the list. 3. Download **raw log** of one. 4. `python3 export.py list` and `python3 export.py get <name> --raw`. 5. Press the button on the watch, then connect with the Web IDE. | Page and Python both list both files with the same byte sizes as the Storage view; the raw downloads are identical (`cmp`) and match the IDE Storage view download. After leaving Export mode the IDE console works again (`1+1` → `=2`). |
+| HW-8 | 5 (over BLE) | Two recordings on the watch; Export (PC) open | 1. Export page: Connect. 2. Check the list. 3. Download **raw log** of one. 4. `python3 apps/datalog/export.py list` and `python3 apps/datalog/export.py get <name> --raw` (repo root, BLE venv Python). 5. Press the button on the watch, then connect with the Web IDE. | Page and Python both list both files with the same byte sizes as the Storage view; the raw downloads are identical (`cmp`) and match the IDE Storage view download. After leaving Export mode the IDE console works again (`1+1` → `=2`). |
 | HW-9 | 6 | One recording | 1. Recordings → tap it → Delete → **No**. 2. Repeat with **Yes**. | After No it is still listed; after Yes it is gone from the list and from the IDE Storage view. |
 | HW-10 | stop by long press while locked | Recording running, screen locked | 1. Without unlocking, hold the button about 1 s, then release. | Logging stops (recordings list appears) and the watch does not jump to the clock. If the firmware's own long-press (clock reload, 1.5 s) wins, record FAIL and how long you held. |
 | HW-11 | other sources | Watch on wrist | 1. Enable Heart rate 1s, Pressure 1s, Compass 1s (rotate the watch a full circle first to calibrate), Steps 10s. 2. Record 2 min while walking. 3. Export CSV. | `h` ≈ 120 rows with plausible BPM; `p` ≈ 120 rows near local pressure (900–1050 hPa); `m` ≈ 120 rows with headings 0–360 (empty only before calibration); `s` 12 rows whose sum ≈ your step count. |

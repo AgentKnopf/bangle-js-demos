@@ -3,6 +3,9 @@
 Run these on a real Bangle.js 2. Record each run in the results table: date,
 firmware version (`process.env.VERSION`), tester initials, result and notes.
 
+Install using `npm run watch -- install hello --device "<device>"` after the
+[first-contact/setup workflow](../../hw-tests/AI-GUIDE.md).
+
 | ID | Spec criterion | Setup | Steps | Expected |
 |---|---|---|---|---|
 | HW-1 | — | App installed via the app loader or IDE | Open the app, tap the centre 3 times | Count shows 3 and "3 taps" |

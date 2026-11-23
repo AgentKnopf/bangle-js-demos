@@ -1,0 +1,2 @@
+# Native CoreBluetooth (macOS), BlueZ D-Bus (Linux), WinRT (Windows).
+bleak==2.1.1
