@@ -10,7 +10,7 @@ firmware, and a list of checks for real hardware.
 |---|---|---|---|---|---|
 | 0 | [`apps/hello`](apps/hello) | Harness example: tap counter | — | — | done |
 | 1 | [`apps/touchgest`](apps/touchgest) | Touch gesture recognizer | beginner | [01](tutorials/01-touch-gestures.md) | done |
-| 2 | `apps/hapticpat` | Haptic pattern player with safety limits | beginner | `tutorials/02-haptic-patterns.md` | planned |
+| 2 | [`apps/hapticpat`](apps/hapticpat) | Haptic pattern player with safety limits | beginner | [02](tutorials/02-haptic-patterns.md) | done |
 | 3 | `apps/compasscal` | Compass with calibration | beginner/intermediate | `tutorials/03-compass-heading.md` | planned |
 | 4 | `apps/baroalt` | Barometer altitude, stair counting, temperature | intermediate | `tutorials/04-barometer-altitude.md` | planned |
 | 5 | `apps/hrstream` | Heart rate over BLE to phone/PC | intermediate | `tutorials/05-hr-ble-streaming.md` | planned |
